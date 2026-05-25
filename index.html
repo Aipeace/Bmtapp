@@ -1,0 +1,1191 @@
+'HTMLEOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+  <title>P2P Merchant Hub</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root{
+      --bg:#090d14;--surface:#111825;--surface2:#181f2e;
+      --border:rgba(255,255,255,0.07);--accent:#f7c131;
+      --blue:#3b82f6;--green:#22c55e;--red:#ef4444;--orange:#f97316;
+      --text:#e4e8f2;--muted:#64748b;--r:14px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+    body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+    /* Nav */
+    .nav{position:fixed;top:0;left:0;right:0;z-index:200;background:rgba(9,13,20,.96);
+      backdrop-filter:blur(18px);border-bottom:1px solid var(--border);
+      display:flex;align-items:center;gap:10px;padding:13px 16px}
+    .nav-logo{font-size:17px;font-weight:700;letter-spacing:-.4px;
+      background:linear-gradient(90deg,var(--accent),#ff9d3b);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .nav-tag{background:var(--accent);color:#000;font-size:9px;font-weight:700;
+      padding:2px 6px;border-radius:4px;letter-spacing:.8px}
+    .nav-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+    .nav-user{font-size:12px;color:var(--muted);font-weight:500}
+    .icon-btn{width:34px;height:34px;border-radius:9px;background:var(--surface);
+      border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
+      cursor:pointer;font-size:15px;transition:opacity .15s;flex-shrink:0}
+    .icon-btn:active{opacity:.6}
+
+    /* Tabs */
+    .tabs{position:fixed;bottom:0;left:0;right:0;z-index:200;
+      background:rgba(9,13,20,.97);backdrop-filter:blur(18px);
+      border-top:1px solid var(--border);display:flex}
+    .tab{flex:1;padding:9px 4px 13px;display:flex;flex-direction:column;
+      align-items:center;gap:3px;cursor:pointer;font-size:9.5px;font-weight:500;
+      color:var(--muted);border:none;background:none;transition:color .2s;
+      -webkit-appearance:none}
+    .tab.active{color:var(--accent)}
+    .tab-icon{font-size:19px;line-height:1}
+
+    /* Pages */
+    .main{padding:72px 0 86px}
+    .page{display:none;padding:0 14px;animation:fadeUp .25s ease}
+    .page.active{display:block}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+    /* Cards */
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+      padding:15px;margin-bottom:10px;position:relative;overflow:hidden}
+    .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
+    .card-title{font-size:13px;font-weight:600}
+
+    /* Badges */
+    .badge{font-size:9.5px;font-weight:700;padding:3px 8px;border-radius:20px;
+      text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+    .b-buy   {background:rgba(34,197,94,.15);color:var(--green)}
+    .b-sell  {background:rgba(239,68,68,.15);color:var(--red)}
+    .b-on    {background:rgba(34,197,94,.15);color:var(--green)}
+    .b-off   {background:rgba(100,116,139,.2);color:var(--muted)}
+    .b-pend  {background:rgba(247,193,49,.15);color:var(--accent)}
+    .b-done  {background:rgba(34,197,94,.15);color:var(--green)}
+    .b-cancel{background:rgba(100,116,139,.2);color:var(--muted)}
+    .b-appeal{background:rgba(249,115,22,.15);color:var(--orange)}
+
+    /* Stats */
+    .stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
+    .stat{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:13px}
+    .stat-lbl{font-size:9.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+    .stat-val{font-size:20px;font-weight:700;margin-top:3px;font-family:'JetBrains Mono',monospace;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .stat-val.c-accent{color:var(--accent)}
+    .stat-val.c-blue  {color:var(--blue)}
+    .stat-val.c-green {color:var(--green)}
+    .stat-sub{font-size:10px;color:var(--muted);margin-top:2px}
+
+    /* Section headers */
+    .sec{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+      letter-spacing:.9px;margin:14px 0 8px}
+
+    /* Buttons */
+    .btn{border:none;border-radius:9px;font-family:inherit;font-weight:600;
+      cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+      transition:opacity .15s,transform .1s;-webkit-appearance:none}
+    .btn:active{transform:scale(.95);opacity:.8}
+    .btn-primary  {background:var(--accent);color:#000;padding:10px 16px;font-size:13px}
+    .btn-secondary{background:var(--surface2);color:var(--text);padding:10px 16px;
+      font-size:13px;border:1px solid var(--border)}
+    .btn-green{background:rgba(34,197,94,.15);color:var(--green);padding:7px 13px;
+      font-size:11px;border:1px solid rgba(34,197,94,.25)}
+    .btn-red  {background:rgba(239,68,68,.15);color:var(--red);padding:7px 13px;
+      font-size:11px;border:1px solid rgba(239,68,68,.25)}
+    .btn-ghost{background:var(--surface2);color:var(--text);padding:7px 13px;
+      font-size:11px;border:1px solid var(--border)}
+    .btn-sm  {padding:6px 11px;font-size:10.5px;border-radius:7px}
+    .btn-full{width:100%}
+    .btn-row {display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+
+    /* Forms */
+    .fg    {margin-bottom:12px}
+    .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+    .lbl   {display:block;font-size:10px;font-weight:700;color:var(--muted);
+      text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+    .inp,.sel{width:100%;background:var(--surface2);border:1px solid var(--border);
+      border-radius:9px;padding:10px 13px;color:var(--text);font-family:inherit;
+      font-size:13px;outline:none;transition:border-color .2s;-webkit-appearance:none;
+      -moz-appearance:none;appearance:none}
+    .inp:focus,.sel:focus{border-color:var(--accent)}
+    .inp::placeholder{color:var(--muted)}
+
+    /* Toggles */
+    .toggle-row{display:flex;gap:4px;margin-bottom:14px}
+    .tgl{flex:1;padding:9px;text-align:center;font-size:12px;font-weight:600;
+      border-radius:9px;cursor:pointer;border:1px solid var(--border);
+      background:var(--surface2);color:var(--muted);transition:all .2s;
+      -webkit-appearance:none}
+    .tgl.buy {background:rgba(34,197,94,.1);color:var(--green);border-color:rgba(34,197,94,.3)}
+    .tgl.sell{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.3)}
+    .tgl.any {background:rgba(247,193,49,.1);color:var(--accent);border-color:rgba(247,193,49,.3)}
+
+    /* Chat */
+    .chat-box{background:var(--surface2);border-radius:11px;padding:11px;
+      min-height:200px;max-height:340px;overflow-y:auto;
+      display:flex;flex-direction:column;gap:8px;margin-bottom:9px}
+    .bubble{max-width:78%;padding:8px 12px;border-radius:12px;
+      font-size:12.5px;line-height:1.5;word-break:break-word}
+    .bubble.mine  {background:var(--accent);color:#000;align-self:flex-end;
+      border-bottom-right-radius:3px}
+    .bubble.theirs{background:var(--surface);color:var(--text);align-self:flex-start;
+      border-bottom-left-radius:3px;border:1px solid var(--border)}
+    .bubble-time{font-size:9px;opacity:.55;margin-top:3px}
+    .chat-row{display:flex;gap:7px}
+    .chat-inp{flex:1;background:var(--surface2);border:1px solid var(--border);
+      border-radius:9px;padding:9px 13px;color:var(--text);font-family:inherit;
+      font-size:13px;outline:none;min-width:0}
+    .chat-inp:focus{border-color:var(--accent)}
+    .chat-send{width:42px;height:42px;flex-shrink:0;background:var(--accent);border:none;
+      border-radius:9px;cursor:pointer;font-size:17px;display:flex;
+      align-items:center;justify-content:center}
+    .chat-send:active{opacity:.7}
+
+    /* Chart */
+    .chart-wrap{position:relative;width:100%;height:160px}
+    canvas{display:block}
+
+    /* Alert items */
+    .alert-item{display:flex;align-items:center;justify-content:space-between;
+      padding:10px 13px;background:var(--surface2);border-radius:9px;
+      margin-bottom:7px;border:1px solid var(--border);gap:8px}
+    .alert-del{background:none;border:none;color:var(--red);font-size:20px;
+      cursor:pointer;padding:2px;line-height:1;flex-shrink:0}
+
+    /* Modal */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:300;
+      display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+    .overlay.open{opacity:1;pointer-events:all}
+    .modal{background:var(--surface);border-radius:20px 20px 0 0;
+      padding:18px 16px 40px;width:100%;transform:translateY(100%);
+      transition:transform .3s cubic-bezier(.4,0,.2,1);
+      max-height:90vh;overflow-y:auto}
+    .overlay.open .modal{transform:translateY(0)}
+    .modal-handle{width:36px;height:4px;background:var(--border);
+      border-radius:2px;margin:0 auto 16px}
+    .modal-title{font-size:15px;font-weight:700;margin-bottom:16px}
+
+    /* Loading / empty */
+    .spinner{width:26px;height:26px;border:2px solid var(--border);
+      border-top-color:var(--accent);border-radius:50%;
+      animation:spin .65s linear infinite;margin:24px auto;display:block}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .empty{text-align:center;padding:32px 16px;color:var(--muted)}
+    .empty .ei{font-size:38px;margin-bottom:8px}
+    .empty p{font-size:13px}
+
+    /* Toast */
+    .toast{position:fixed;top:68px;left:50%;
+      transform:translateX(-50%) translateY(-6px);
+      background:var(--surface2);border:1px solid var(--border);border-radius:9px;
+      padding:9px 16px;font-size:12.5px;z-index:500;opacity:0;
+      transition:all .25s;pointer-events:none;white-space:nowrap;max-width:88vw}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+    /* Error banner */
+    .err-banner{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);
+      border-radius:9px;padding:10px 13px;font-size:12px;color:var(--red);
+      margin-bottom:10px;display:none}
+    .err-banner.show{display:block}
+
+    /* Loading state for buttons */
+    .btn[disabled]{opacity:.5;cursor:not-allowed}
+
+    ::-webkit-scrollbar{width:3px}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:2px}
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-logo">P2P Hub</span>
+  <span class="nav-tag">BYBIT</span>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user"></span>
+    <div class="icon-btn" onclick="refresh()" title="Refresh">🔄</div>
+  </div>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<main class="main">
+
+  <!-- HOME -->
+  <div class="page active" id="pg-home">
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-lbl">30d Volume</div>
+        <div class="stat-val c-accent" id="h-vol">–</div>
+        <div class="stat-sub" id="h-vol-sub">loading…</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Active Orders</div>
+        <div class="stat-val c-blue" id="h-orders">–</div>
+        <div class="stat-sub" id="h-ord-sub">loading…</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Active Ads</div>
+        <div class="stat-val c-green" id="h-ads">–</div>
+        <div class="stat-sub" id="h-ads-sub">loading…</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Completion</div>
+        <div class="stat-val c-accent" id="h-rate">–</div>
+        <div class="stat-sub">30-day rate</div>
+      </div>
+    </div>
+    <div class="err-banner" id="home-err"></div>
+    <div class="sec">Market Snapshot (USDT/NGN)</div>
+    <div id="home-market"><div class="spinner"></div></div>
+    <div class="sec">Recent Orders</div>
+    <div id="home-orders"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ADS -->
+  <div class="page" id="pg-ads">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;margin-top:4px">
+      <div class="sec" style="margin:0">My Ads</div>
+      <button class="btn btn-primary btn-sm" onclick="openCreateAd()">＋ New Ad</button>
+    </div>
+    <div class="err-banner" id="ads-err"></div>
+    <div id="ads-list"><div class="spinner"></div></div>
+  </div>
+
+  <!-- ORDERS -->
+  <div class="page" id="pg-orders">
+    <div class="toggle-row" style="margin-top:4px">
+      <button class="tgl any" id="of-all"    onclick="setOrderFilter('')">All</button>
+      <button class="tgl"     id="of-active" onclick="setOrderFilter('5')">Active</button>
+      <button class="tgl"     id="of-paid"   onclick="setOrderFilter('20')">Paid</button>
+      <button class="tgl"     id="of-done"   onclick="setOrderFilter('30')">Done</button>
+    </div>
+    <div class="err-banner" id="orders-err"></div>
+    <div id="orders-list"><div class="spinner"></div></div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="page" id="pg-chat">
+    <div id="chat-select">
+      <div class="sec" style="margin-top:4px">Select an Order to Chat</div>
+      <div class="err-banner" id="chat-err"></div>
+      <div id="chat-order-list"><div class="spinner"></div></div>
+    </div>
+    <div id="chat-window" style="display:none">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;margin-top:4px">
+        <button class="btn btn-ghost btn-sm" onclick="closeChatWindow()">← Back</button>
+        <span id="chat-title" style="font-size:12px;font-weight:600;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+      </div>
+      <div class="chat-box" id="chat-msgs"></div>
+      <div class="chat-row">
+        <input class="chat-inp" id="chat-inp" placeholder="Type a message…"/>
+        <button class="chat-send" id="chat-send-btn" onclick="sendMsg()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYTICS -->
+  <div class="page" id="pg-analytics">
+    <div class="stats" style="margin-top:4px">
+      <div class="stat">
+        <div class="stat-lbl">Total Volume</div>
+        <div class="stat-val c-accent" id="an-vol">–</div>
+        <div class="stat-sub">30 days (fiat)</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Completed</div>
+        <div class="stat-val c-green" id="an-done">–</div>
+        <div class="stat-sub" id="an-rate">– completion</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Buy Orders</div>
+        <div class="stat-val c-blue" id="an-buy">–</div>
+        <div class="stat-sub">completed</div>
+      </div>
+      <div class="stat">
+        <div class="stat-lbl">Sell Orders</div>
+        <div class="stat-val" id="an-sell">–</div>
+        <div class="stat-sub">completed</div>
+      </div>
+    </div>
+    <div class="sec">Volume — Last 7 Days</div>
+    <div class="card" style="padding:12px 12px 8px">
+      <div class="chart-wrap"><canvas id="volChart"></canvas></div>
+    </div>
+    <div class="sec">Add Price Alert</div>
+    <div class="card">
+      <div class="fg-row">
+        <div class="fg" style="margin:0">
+          <select class="sel" id="al-token">
+            <option value="USDT">USDT</option>
+            <option value="BTC">BTC</option>
+            <option value="ETH">ETH</option>
+          </select>
+        </div>
+        <div class="fg" style="margin:0">
+          <input class="inp" id="al-cur" placeholder="Currency e.g. NGN"/>
+        </div>
+      </div>
+      <div class="fg-row" style="margin-top:8px">
+        <select class="sel" id="al-side">
+          <option value="SELL">Sell side</option>
+          <option value="BUY">Buy side</option>
+        </select>
+        <select class="sel" id="al-dir">
+          <option value="ABOVE">Above ⬆️</option>
+          <option value="BELOW">Below ⬇️</option>
+        </select>
+      </div>
+      <input class="inp" id="al-price" placeholder="Target price" type="number" min="0" step="any" style="margin-top:8px"/>
+      <button class="btn btn-primary btn-full" style="margin-top:9px" onclick="addAlert()">🔔 Set Alert</button>
+    </div>
+    <div class="sec">Active Alerts</div>
+    <div id="alerts-list"></div>
+  </div>
+
+</main>
+
+<nav class="tabs">
+  <button class="tab active" onclick="goTab('home')"><span class="tab-icon">🏠</span>Home</button>
+  <button class="tab"        onclick="goTab('ads')"><span class="tab-icon">📋</span>Ads</button>
+  <button class="tab"        onclick="goTab('orders')"><span class="tab-icon">📦</span>Orders</button>
+  <button class="tab"        onclick="goTab('chat')"><span class="tab-icon">💬</span>Chat</button>
+  <button class="tab"        onclick="goTab('analytics')"><span class="tab-icon">📊</span>Stats</button>
+</nav>
+
+<!-- Ad Create/Edit Modal -->
+<div class="overlay" id="adModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="adModal-title">Create Ad</div>
+
+    <div class="toggle-row">
+      <button class="tgl buy" id="s-buy"  onclick="setSide('0')">🟢 Buy</button>
+      <button class="tgl"     id="s-sell" onclick="setSide('1')">🔴 Sell</button>
+    </div>
+
+    <div class="fg-row">
+      <div class="fg">
+        <label class="lbl">Token</label>
+        <select class="sel" id="ad-token">
+          <option value="USDT">USDT</option>
+          <option value="BTC">BTC</option>
+          <option value="ETH">ETH</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="lbl">Currency</label>
+        <input class="inp" id="ad-cur" placeholder="e.g. NGN"/>
+      </div>
+    </div>
+
+    <div class="fg-row">
+      <div class="fg">
+        <label class="lbl">Price Type</label>
+        <select class="sel" id="ad-ptype" onchange="onPriceTypeChange()">
+          <option value="1">Fixed</option>
+          <option value="2">Float (%)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="lbl" id="ad-price-lbl">Price</label>
+        <input class="inp" id="ad-price" placeholder="1500.00" type="number" min="0" step="any"/>
+      </div>
+    </div>
+
+    <div class="fg">
+      <label class="lbl">Quantity</label>
+      <input class="inp" id="ad-qty" placeholder="500" type="number" min="0" step="any"/>
+    </div>
+
+    <div class="fg-row">
+      <div class="fg">
+        <label class="lbl">Min Order (fiat)</label>
+        <input class="inp" id="ad-min" placeholder="5000" type="number" min="0"/>
+      </div>
+      <div class="fg">
+        <label class="lbl">Max Order (fiat)</label>
+        <input class="inp" id="ad-max" placeholder="500000" type="number" min="0"/>
+      </div>
+    </div>
+
+    <div class="fg">
+      <label class="lbl">Remark (optional)</label>
+      <input class="inp" id="ad-remark" placeholder="e.g. Fast release, trusted"/>
+    </div>
+
+    <button class="btn btn-primary btn-full" id="ad-submit-btn" onclick="submitAd()">
+      <span id="ad-btn-lbl">Create Ad</span>
+    </button>
+    <button class="btn btn-secondary btn-full" style="margin-top:8px" onclick="closeModal('adModal')">
+      Cancel
+    </button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ── Telegram ──────────────────────────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const tgUser = tg?.initDataUnsafe?.user;
+if (tgUser) {
+  document.getElementById('nav-user').textContent = tgUser.first_name || '';
+}
+
+// ── API ───────────────────────────────────────────────────────────────────────
+// BUG FIX 1: API_BASE must be empty string when served from same origin on Render.
+// On Render the Express server serves both /api/* and /public/* from one process.
+const API_BASE = '';
+
+async function callApi(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  // FIX 2: Only attach tg initData if it exists (not an empty string)
+  if (tg?.initData && tg.initData.length > 0) {
+    opts.headers['x-telegram-init-data'] = tg.initData;
+  }
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const res = await fetch(API_BASE + '/api' + path, opts);
+  // FIX 3: Always parse JSON even on non-2xx so we can show the Bybit error message
+  const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+const GET    = (p)    => callApi('GET',    p);
+const POST   = (p, b) => callApi('POST',   p, b);
+const PUT    = (p, b) => callApi('PUT',    p, b);
+const PATCH  = (p, b) => callApi('PATCH',  p, b);
+const DEL    = (p)    => callApi('DELETE', p);
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let activeTab     = 'home';
+let currentSide   = '0';
+let editingAdId   = null;
+let activeOrderId = null;
+let chatPoll      = null;
+let orderFilter   = '';
+// FIX 4: Guard localStorage in case it's blocked (some Telegram environments)
+let priceAlerts   = [];
+try { priceAlerts = JSON.parse(localStorage.getItem('p2p_alerts') || '[]'); } catch(_) {}
+
+function saveAlerts() {
+  try { localStorage.setItem('p2p_alerts', JSON.stringify(priceAlerts)); } catch(_) {}
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+const fmt = (n, d = 2) =>
+  parseFloat(n || 0).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+// FIX 5: timeAgo must handle both ms timestamps and already-formatted strings
+function timeAgo(ts) {
+  const ms = Number(ts);
+  if (!ms || isNaN(ms)) return '';
+  const s = (Date.now() - ms) / 1000;
+  if (s < 5)     return 'just now';
+  if (s < 60)    return Math.floor(s) + 's ago';
+  if (s < 3600)  return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+
+let _toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = '⚠️ ' + msg;
+  el.classList.add('show');
+}
+function clearErr(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('show');
+}
+
+function setHTML(id, html) {
+  const el = document.getElementById(id);
+  if (el) el.innerHTML = html;
+}
+
+function spinner() { return '<div class="spinner"></div>'; }
+function empty(icon, msg) {
+  return `<div class="empty"><div class="ei">${icon}</div><p>${msg}</p></div>`;
+}
+
+const SIDE_BADGE = s => String(s) === '0'
+  ? '<span class="badge b-buy">BUY</span>'
+  : '<span class="badge b-sell">SELL</span>';
+
+const STATUS_MAP = {
+  '5':  ['b-pend',   '🔄 In Progress'],
+  '10': ['b-pend',   '⏳ Waiting Pay'],
+  '20': ['b-pend',   '💳 Paid'],
+  '30': ['b-done',   '✅ Complete'],
+  '40': ['b-cancel', '❌ Cancelled'],
+  '50': ['b-appeal', '⚠️ Appeal'],
+};
+function statusBadge(s) {
+  const [cls, label] = STATUS_MAP[String(s)] || ['b-pend', `#${s}`];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const TAB_NAMES = ['home','ads','orders','chat','analytics'];
+
+function goTab(tab) {
+  if (!TAB_NAMES.includes(tab)) tab = 'home';
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('pg-' + tab)?.classList.add('active');
+  const tabEls = document.querySelectorAll('.tab');
+  const idx = TAB_NAMES.indexOf(tab);
+  if (tabEls[idx]) tabEls[idx].classList.add('active');
+  activeTab = tab;
+  loadTab(tab);
+}
+
+function refresh() { loadTab(activeTab); toast('Refreshed ✓'); }
+
+function loadTab(t) {
+  if (t === 'home')      loadHome();
+  if (t === 'ads')       loadAds();
+  if (t === 'orders')    loadOrders(orderFilter);
+  if (t === 'chat')      loadChatOrders();
+  if (t === 'analytics') loadAnalytics();
+}
+
+// Hash-based deep links from bot (e.g. #analytics, #ads/edit/ID)
+function applyHash() {
+  const raw = location.hash.replace('#', '');
+  if (!raw) return;
+  const [tab, action, id] = raw.split('/');
+  if (TAB_NAMES.includes(tab)) {
+    goTab(tab);
+    if (tab === 'ads' && action === 'edit' && id) {
+      setTimeout(() => openEditAd(id), 400);
+    }
+    if (tab === 'chat' && id) {
+      setTimeout(() => openChat(id), 400);
+    }
+  }
+}
+window.addEventListener('hashchange', applyHash);
+
+// ── HOME ──────────────────────────────────────────────────────────────────────
+async function loadHome() {
+  clearErr('home-err');
+  try {
+    // FIX 6: Run requests in parallel but handle individual failures gracefully
+    const results = await Promise.allSettled([
+      GET('/ads?size=50'),
+      GET('/orders?size=50'),
+      GET('/orders/history?days=30'),
+      GET('/market/ads?tokenId=USDT&currencyId=NGN&side=0&size=3'),
+    ]);
+
+    const [adsR, ordersR, histR, mktR] = results;
+
+    const ads     = adsR.status    === 'fulfilled' ? (adsR.value.result?.items    || []) : [];
+    const orders  = ordersR.status === 'fulfilled' ? (ordersR.value.result?.items || []) : [];
+    const history = histR.status   === 'fulfilled' ? (histR.value.result?.items   || []) : [];
+    const mktAds  = mktR.status    === 'fulfilled' ? (mktR.value.result?.items    || []) : [];
+
+    const activeAds  = ads.filter(a => String(a.status) === '1');
+    const activeOrds = orders.filter(o => ['5','10','20'].includes(String(o.status)));
+    const done       = history.filter(o => String(o.status) === '30');
+    const vol        = done.reduce((s, o) => s + parseFloat(o.amount || 0), 0);
+    const rate       = history.length
+      ? ((done.length / history.length) * 100).toFixed(0) : 0;
+
+    document.getElementById('h-vol').textContent     = fmt(vol);
+    document.getElementById('h-vol-sub').textContent = `${done.length} completed orders`;
+    document.getElementById('h-orders').textContent  = activeOrds.length;
+    document.getElementById('h-ord-sub').textContent =
+      `${orders.filter(o => String(o.status) === '20').length} awaiting release`;
+    document.getElementById('h-ads').textContent     = activeAds.length;
+    document.getElementById('h-ads-sub').textContent = `of ${ads.length} total`;
+    document.getElementById('h-rate').textContent    = rate + '%';
+
+    // Market snapshot — show both buy & sell best price
+    setHTML('home-market', mktAds.length
+      ? mktAds.map(a => `
+          <div class="card" style="margin-bottom:8px;cursor:default">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:8px">
+                ${SIDE_BADGE(a.side)}
+                <span style="font-size:12px;font-weight:600">${a.tokenId}/${a.currencyId}</span>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent)">${fmt(a.price)}</span>
+            </div>
+            <div style="font-size:10px;color:var(--muted);margin-top:5px">
+              Min ${fmt(a.minAmount,0)} · Max ${fmt(a.maxAmount,0)} · ${a.nickName||''}
+            </div>
+          </div>`).join('')
+      : empty('📊', 'No market data available'));
+
+    // Recent orders
+    setHTML('home-orders', orders.length
+      ? orders.slice(0, 4).map(o => renderOrderCard(o, true)).join('')
+      : empty('📭', 'No recent orders'));
+
+    if (adsR.status === 'rejected') showErr('home-err', 'Ads: ' + adsR.reason?.message);
+
+  } catch (e) {
+    showErr('home-err', e.message);
+  }
+}
+
+// ── ADS ───────────────────────────────────────────────────────────────────────
+async function loadAds() {
+  clearErr('ads-err');
+  setHTML('ads-list', spinner());
+  try {
+    const res = await GET('/ads?size=50');
+    const ads = res.result?.items || [];
+    if (!ads.length) {
+      setHTML('ads-list', empty('📭', 'No ads yet. Tap + to create one.'));
+      return;
+    }
+    setHTML('ads-list', ads.map(ad => {
+      const online = String(ad.status) === '1';
+      return `
+        <div class="card">
+          <div class="card-hd">
+            <div style="display:flex;align-items:center;gap:8px">
+              ${SIDE_BADGE(ad.side)}
+              <span class="card-title">${ad.tokenId}/${ad.currencyId}</span>
+            </div>
+            <span class="badge ${online ? 'b-on':'b-off'}">${online?'Online':'Offline'}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:11px">
+            <div>
+              <div class="stat-lbl">Price</div>
+              <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700">${fmt(ad.price)}</div>
+            </div>
+            <div>
+              <div class="stat-lbl">Quantity</div>
+              <div style="font-size:13px;font-weight:600">${fmt(ad.quantity,4)}</div>
+            </div>
+            <div>
+              <div class="stat-lbl">Min–Max</div>
+              <div style="font-size:10.5px;color:var(--muted)">${fmt(ad.minAmount,0)}–${fmt(ad.maxAmount,0)}</div>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn ${online?'btn-red':'btn-green'} btn-sm"
+              onclick="toggleAd('${ad.id}','${ad.status}')">
+              ${online ? '⏸ Pause':'▶️ Activate'}
+            </button>
+            <button class="btn btn-ghost btn-sm" onclick="openEditAd('${ad.id}')">✏️ Edit</button>
+            <button class="btn btn-red btn-sm"   onclick="deleteAd('${ad.id}')">🗑 Delete</button>
+          </div>
+        </div>`;
+    }).join(''));
+  } catch(e) {
+    showErr('ads-err', e.message);
+    setHTML('ads-list', '');
+  }
+}
+
+async function toggleAd(id, currentStatus) {
+  const newStatus = String(currentStatus) === '1' ? '2' : '1';
+  try {
+    const r = await PATCH(`/ads/${id}/status`, { status: newStatus });
+    if (r.retCode !== 0) return toast('❌ ' + (r.retMsg || 'Error'));
+    toast(newStatus === '1' ? '✅ Ad is now Online' : '⏸ Ad is now Offline');
+    loadAds();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+async function deleteAd(id) {
+  // FIX 7: Telegram's showConfirm is async with a callback, not a Promise — wrap it correctly
+  let confirmed = false;
+  if (tg?.showConfirm) {
+    confirmed = await new Promise(resolve => tg.showConfirm('Delete this ad permanently?', resolve));
+  } else {
+    confirmed = window.confirm('Delete this ad permanently?');
+  }
+  if (!confirmed) return;
+  try {
+    const r = await DEL(`/ads/${id}`);
+    if (r.retCode !== 0) return toast('❌ ' + (r.retMsg || 'Error'));
+    toast('🗑 Ad deleted');
+    loadAds();
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+// Ad modal
+function openCreateAd() {
+  editingAdId = null; currentSide = '0';
+  document.getElementById('adModal-title').textContent = 'Create Ad';
+  document.getElementById('ad-btn-lbl').textContent    = 'Create Ad';
+  document.getElementById('ad-token').value  = 'USDT';
+  document.getElementById('ad-cur').value    = '';
+  document.getElementById('ad-ptype').value  = '1';
+  document.getElementById('ad-price').value  = '';
+  document.getElementById('ad-qty').value    = '';
+  document.getElementById('ad-min').value    = '';
+  document.getElementById('ad-max').value    = '';
+  document.getElementById('ad-remark').value = '';
+  onPriceTypeChange();
+  updateSideUI();
+  openModal('adModal');
+}
+
+async function openEditAd(id) {
+  try {
+    const r  = await GET(`/ads/${id}`);
+    // FIX 8: Bybit returns the ad under result.result or result directly — handle both
+    const ad = r.result?.result || r.result?.item || r.result;
+    if (!ad || typeof ad !== 'object') return toast('❌ Could not load ad details');
+    editingAdId = id;
+    currentSide = String(ad.side);
+    document.getElementById('adModal-title').textContent = 'Edit Ad';
+    document.getElementById('ad-btn-lbl').textContent    = 'Save Changes';
+    document.getElementById('ad-token').value  = ad.tokenId  || 'USDT';
+    document.getElementById('ad-cur').value    = ad.currencyId || '';
+    document.getElementById('ad-ptype').value  = String(ad.priceType || '1');
+    document.getElementById('ad-price').value  = ad.price    || ad.premium || '';
+    document.getElementById('ad-qty').value    = ad.quantity || '';
+    document.getElementById('ad-min').value    = ad.minAmount || '';
+    document.getElementById('ad-max').value    = ad.maxAmount || '';
+    document.getElementById('ad-remark').value = ad.remark   || '';
+    onPriceTypeChange();
+    updateSideUI();
+    openModal('adModal');
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+function setSide(s) { currentSide = s; updateSideUI(); }
+function updateSideUI() {
+  document.getElementById('s-buy').className  = 'tgl ' + (currentSide === '0' ? 'buy' : '');
+  document.getElementById('s-sell').className = 'tgl ' + (currentSide === '1' ? 'sell': '');
+}
+
+function onPriceTypeChange() {
+  const isFloat = document.getElementById('ad-ptype').value === '2';
+  document.getElementById('ad-price-lbl').textContent = isFloat ? 'Premium (%)' : 'Price';
+  document.getElementById('ad-price').placeholder     = isFloat ? '1.5' : '1500.00';
+}
+
+async function submitAd() {
+  const btn      = document.getElementById('ad-submit-btn');
+  const token    = document.getElementById('ad-token').value;
+  const currency = document.getElementById('ad-cur').value.trim().toUpperCase();
+  const ptype    = document.getElementById('ad-ptype').value;
+  const priceVal = document.getElementById('ad-price').value.trim();
+  const qty      = document.getElementById('ad-qty').value.trim();
+  const min      = document.getElementById('ad-min').value.trim();
+  const max      = document.getElementById('ad-max').value.trim();
+  const remark   = document.getElementById('ad-remark').value.trim();
+
+  if (!currency)  return toast('⚠️ Enter a currency (e.g. NGN)');
+  if (!priceVal)  return toast('⚠️ Enter a price');
+  if (!qty)       return toast('⚠️ Enter quantity');
+  if (!min || !max) return toast('⚠️ Enter min and max order limits');
+  if (parseFloat(min) >= parseFloat(max)) return toast('⚠️ Max must be greater than Min');
+
+  const payload = {
+    side:       currentSide,
+    tokenId:    token,
+    currencyId: currency,
+    priceType:  ptype,
+    quantity:   qty,
+    minAmount:  min,
+    maxAmount:  max,
+    ...(remark  ? { remark }          : {}),
+    ...(ptype === '1' ? { price: priceVal } : { premium: priceVal }),
+  };
+
+  btn.disabled = true;
+  try {
+    const r = editingAdId
+      ? await PUT(`/ads/${editingAdId}`, payload)
+      : await POST('/ads', payload);
+    if (r.retCode !== 0) return toast('❌ Bybit: ' + r.retMsg);
+    toast(editingAdId ? '✅ Ad updated!' : '✅ Ad created!');
+    closeModal('adModal');
+    loadAds();
+  } catch(e) {
+    toast('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── ORDERS ────────────────────────────────────────────────────────────────────
+function setOrderFilter(status) {
+  orderFilter = status;
+  document.querySelectorAll('#pg-orders .tgl').forEach(b => b.className = 'tgl');
+  const ids = { '':'of-all', '5':'of-active', '20':'of-paid', '30':'of-done' };
+  const el  = document.getElementById(ids[status]);
+  if (el) el.classList.add(status === '' ? 'any' : status === '30' ? 'buy' : 'sell');
+  loadOrders(status);
+}
+
+async function loadOrders(status = '') {
+  clearErr('orders-err');
+  setHTML('orders-list', spinner());
+  try {
+    const res    = await GET(`/orders?status=${encodeURIComponent(status)}&size=20`);
+    const orders = res.result?.items || [];
+    setHTML('orders-list', orders.length
+      ? orders.map(o => renderOrderCard(o, false)).join('')
+      : empty('📭', 'No orders found.'));
+  } catch(e) {
+    showErr('orders-err', e.message);
+    setHTML('orders-list', '');
+  }
+}
+
+function renderOrderCard(o, compact) {
+  const s = String(o.status);
+  let btns = '';
+  if (!compact) {
+    if (s === '10')              btns += `<button class="btn btn-green btn-sm" onclick="doOrderAction('pay','${o.id}')">✅ Mark Paid</button>`;
+    if (s === '20')              btns += `<button class="btn btn-primary btn-sm" onclick="doOrderAction('release','${o.id}')">🔓 Release</button>`;
+    if (['5','10'].includes(s))  btns += `<button class="btn btn-red btn-sm"   onclick="doOrderAction('cancel','${o.id}')">❌ Cancel</button>`;
+    if (['10','20'].includes(s)) btns += `<button class="btn btn-ghost btn-sm" onclick="openChat('${o.id}')">💬 Chat</button>`;
+  }
+  return `
+    <div class="card">
+      <div class="card-hd">
+        <div style="display:flex;align-items:center;gap:7px">
+          ${SIDE_BADGE(o.side)}
+          <span style="font-size:11px;color:var(--muted)">${o.tokenId}/${o.currencyId}</span>
+        </div>
+        ${statusBadge(o.status)}
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-end">
+        <div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700">
+            ${fmt(o.amount)} <span style="font-size:10px;color:var(--muted);font-family:inherit">${o.currencyId}</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">
+            ${fmt(o.quantity,4)} ${o.tokenId} · ${timeAgo(o.createDate)}
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">
+          …${String(o.id || '').slice(-6)}
+        </div>
+      </div>
+      ${btns ? `<div class="btn-row">${btns}</div>` : ''}
+    </div>`;
+}
+
+async function doOrderAction(action, orderId) {
+  try {
+    let r;
+    if (action === 'pay')     r = await POST(`/orders/${orderId}/pay`,     {});
+    if (action === 'release') r = await POST(`/orders/${orderId}/release`,  {});
+    if (action === 'cancel')  r = await POST(`/orders/${orderId}/cancel`,  { cancelType: '1' });
+    if (!r) return;
+    if (r.retCode !== 0) return toast('❌ Bybit: ' + (r.retMsg || 'Error'));
+    const msg = { pay:'✅ Payment confirmed!', release:'🔓 Crypto released!', cancel:'❌ Order cancelled.' };
+    toast(msg[action]);
+    loadOrders(orderFilter);
+  } catch(e) { toast('❌ ' + e.message); }
+}
+
+// ── CHAT ──────────────────────────────────────────────────────────────────────
+async function loadChatOrders() {
+  clearErr('chat-err');
+  // Only reset to list view if no active chat
+  if (!activeOrderId) {
+    document.getElementById('chat-select').style.display = 'block';
+    document.getElementById('chat-window').style.display  = 'none';
+  }
+  setHTML('chat-order-list', spinner());
+  try {
+    const res    = await GET('/orders?size=30');
+    const active = (res.result?.items || [])
+      .filter(o => ['10','20'].includes(String(o.status)));
+    setHTML('chat-order-list', active.length
+      ? active.map(o => `
+          <div class="card" onclick="openChat('${o.id}')" style="cursor:pointer">
+            <div class="card-hd">
+              <div style="display:flex;gap:8px;align-items:center">
+                ${SIDE_BADGE(o.side)}
+                <span style="font-size:13px;font-weight:600">…${String(o.id).slice(-10)}</span>
+              </div>
+              <span style="font-size:11px;color:var(--muted)">${fmt(o.amount)} ${o.currencyId}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-size:11px;color:var(--muted)">${statusBadge(o.status)}</div>
+              <div style="font-size:11px;color:var(--accent)">Open chat →</div>
+            </div>
+          </div>`).join('')
+      : empty('💬', 'No active orders to chat in.'));
+  } catch(e) {
+    showErr('chat-err', e.message);
+    setHTML('chat-order-list', '');
+  }
+}
+
+async function openChat(orderId) {
+  activeOrderId = orderId;
+  document.getElementById('chat-select').style.display = 'none';
+  document.getElementById('chat-window').style.display  = 'block';
+  document.getElementById('chat-title').textContent = `Order …${String(orderId).slice(-10)}`;
+  if (activeTab !== 'chat') goTab('chat');
+  await renderChatMessages();
+  if (chatPoll) clearInterval(chatPoll);
+  chatPoll = setInterval(renderChatMessages, 5000);
+}
+
+function closeChatWindow() {
+  if (chatPoll) { clearInterval(chatPoll); chatPoll = null; }
+  activeOrderId = null;
+  document.getElementById('chat-select').style.display = 'block';
+  document.getElementById('chat-window').style.display  = 'none';
+}
+
+async function renderChatMessages() {
+  if (!activeOrderId) return;
+  try {
+    const r    = await GET(`/orders/${activeOrderId}/messages?size=40`);
+    const msgs = (r.result?.list || []).slice().reverse();
+    const el   = document.getElementById('chat-msgs');
+    if (!el) return;
+    const wasAtBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 40;
+    el.innerHTML = msgs.length
+      ? msgs.map(m => {
+          // FIX 9: Bybit uses accountId or userId — check both; sanitize message content
+          const mine = m.userId === 'me' || m.isSelf === true || m.isSelf === 1;
+          const text = String(m.message || m.content || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const time = m.createDate
+            ? new Date(Number(m.createDate)).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})
+            : '';
+          return `<div class="bubble ${mine?'mine':'theirs'}">
+            ${text}
+            <div class="bubble-time">${time}</div>
+          </div>`;
+        }).join('')
+      : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">No messages yet</div>';
+    if (wasAtBottom) el.scrollTop = el.scrollHeight;
+  } catch(_) { /* silently ignore poll errors */ }
+}
+
+async function sendMsg() {
+  const inp = document.getElementById('chat-inp');
+  const btn = document.getElementById('chat-send-btn');
+  const msg = inp.value.trim();
+  if (!msg || !activeOrderId) return;
+  inp.value = '';
+  btn.disabled = true;
+  try {
+    const r = await POST(`/orders/${activeOrderId}/messages`, { message: msg, msgType: 'str' });
+    if (r.retCode !== 0) {
+      inp.value = msg; // restore on failure
+      toast('❌ ' + (r.retMsg || 'Send failed'));
+    } else {
+      await renderChatMessages();
+    }
+  } catch(e) {
+    inp.value = msg;
+    toast('❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    inp.focus();
+  }
+}
+
+document.getElementById('chat-inp').addEventListener('keypress', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+});
+
+// ── ANALYTICS ─────────────────────────────────────────────────────────────────
+async function loadAnalytics() {
+  try {
+    const res  = await GET('/orders/history?days=30');
+    const all  = res.result?.items || [];
+    const done = all.filter(o => String(o.status) === '30');
+    const vol  = done.reduce((s, o) => s + parseFloat(o.amount || 0), 0);
+    const rate = all.length ? ((done.length / all.length) * 100).toFixed(0) : 0;
+    const buys = done.filter(o => String(o.side) === '0').length;
+    const sells= done.filter(o => String(o.side) === '1').length;
+
+    document.getElementById('an-vol').textContent  = fmt(vol);
+    document.getElementById('an-done').textContent = done.length;
+    document.getElementById('an-rate').textContent = rate + '% completion';
+    document.getElementById('an-buy').textContent  = buys;
+    document.getElementById('an-sell').textContent = sells;
+    drawChart(all);
+  } catch(e) {
+    toast('❌ Analytics: ' + e.message);
+  }
+  renderAlerts();
+}
+
+function drawChart(orders) {
+  const canvas = document.getElementById('volChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const DPR = Math.min(devicePixelRatio || 1, 2); // cap at 2x
+  const W   = canvas.parentElement.clientWidth;
+  const H   = 160;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  canvas.width  = W * DPR;
+  canvas.height = H * DPR;
+  ctx.scale(DPR, DPR);
+
+  const PAD = { t:10, r:10, b:28, l:54 };
+  const cW = W - PAD.l - PAD.r, cH = H - PAD.t - PAD.b;
+
+  const now  = Date.now();
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d   = new Date(now - (6-i) * 86400000);
+    return {
+      key:   d.toISOString().slice(0,10),
+      label: d.toLocaleDateString('en', { weekday:'short' }),
+    };
+  });
+
+  const done = orders.filter(o => String(o.status) === '30');
+  const data = days.map(({ key }) =>
+    done.filter(o => {
+      const ms = Number(o.createDate);
+      return !isNaN(ms) && new Date(ms).toISOString().slice(0,10) === key;
+    }).reduce((s, o) => s + parseFloat(o.amount || 0), 0)
+  );
+  const maxVal = Math.max(...data, 1);
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  [0.25, 0.5, 0.75, 1].forEach(f => {
+    const y = PAD.t + cH * (1-f);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l+cW, y); ctx.stroke();
+    ctx.fillStyle  = 'rgba(100,116,139,.7)';
+    ctx.font       = '9.5px Space Grotesk, sans-serif';
+    ctx.textAlign  = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(fmt(maxVal*f, 0), PAD.l-4, y);
+  });
+
+  if (data.every(v => v === 0)) {
+    ctx.fillStyle = 'rgba(100,116,139,.5)';
+    ctx.font      = '12px Space Grotesk, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No completed orders this week', W/2, H/2);
+    return;
+  }
+
+  const pts = data.map((v, i) => ({
+    x: PAD.l + (i/(data.length-1)) * cW,
+    y: PAD.t + cH * (1 - v/maxVal),
+  }));
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, PAD.t, 0, PAD.t+cH);
+  grad.addColorStop(0, 'rgba(247,193,49,.3)');
+  grad.addColorStop(1, 'rgba(247,193,49,0)');
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.lineTo(pts[pts.length-1].x, PAD.t+cH);
+  ctx.lineTo(pts[0].x, PAD.t+cH);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = '#f7c131';
+  ctx.lineWidth   = 2;
+  ctx.lineJoin    = 'round';
+  ctx.stroke();
+
+  // Dots + day labels
+  pts.forEach((p,i) => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3.5, 0, Math.PI*2);
+    ctx.fillStyle = '#f7c131';
+    ctx.fill();
+
+    ctx.fillStyle    = 'rgba(100,116,139,.8)';
+    ctx.font         = '9.5px Space Grotesk, sans-serif';
+    ctx.textAlign    = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(days[i].label, p.x, PAD.t+cH+6);
+  });
+}
+
+// ── PRICE ALERTS ──────────────────────────────────────────────────────────────
+function addAlert() {
+  const token    = document.getElementById('al-token').value;
+  const currency = document.getElementById('al-cur').value.trim().toUpperCase();
+  const side     = document.getElementById('al-side').value;
+  const dir      = document.getElementById('al-dir').value;
+  const price    = parseFloat(document.getElementById('al-price').value);
+
+  if (!currency) return toast('⚠️ Enter a currency (e.g. NGN)');
+  if (!price || price <= 0) return toast('⚠️ Enter a valid target price');
+
+  priceAlerts.push({ id: Date.now(), token, currency, side, dir, price });
+  saveAlerts();
+  document.getElementById('al-price').value = '';
+  document.getElementById('al-cur').value   = '';
+  toast('🔔 Alert set!');
+  renderAlerts();
+}
+
+function removeAlert(id) {
+  priceAlerts = priceAlerts.filter(a => a.id !== id);
+  saveAlerts();
+  renderAlerts();
+  toast('Alert removed');
+}
+
+function renderAlerts() {
+  const el = document.getElementById('alerts-list');
+  if (!el) return;
+  el.innerHTML = priceAlerts.length
+    ? priceAlerts.map(a => `
+        <div class="alert-item">
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:600">${a.token}/${a.currency} · ${a.side}</div>
+            <div style="font-size:11px;color:var(--muted)">${a.dir==='ABOVE'?'⬆️':'⬇️'} ${a.dir} ${fmt(a.price)}</div>
+          </div>
+          <button class="alert-del" onclick="removeAlert(${a.id})">×</button>
+        </div>`).join('')
+    : '<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">No active alerts</div>';
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(id)  {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('open');
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('open');
+}
+document.querySelectorAll('.overlay').forEach(el =>
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); })
+);
+
+// ── BOOT ──────────────────────────────────────────────────────────────────────
+// Apply hash first (may override default tab), then boot
+applyHash();
+if (activeTab === 'home') loadHome();
+renderAlerts();
+</script>
+</body>
+</html>
+HTMLEOF
