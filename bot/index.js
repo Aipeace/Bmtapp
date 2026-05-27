@@ -67,7 +67,7 @@ function kb(rows) { return { reply_markup: { inline_keyboard: rows } }; }
 
 function getApi(chatId) {
   const user = store.get(chatId);
-  if (!user?.apiKey) return null;
+  if (!user?.apiKey || !user?.apiSecret) return null;
   return pool.getClient(user);
 }
 
@@ -431,10 +431,11 @@ bot.on('callback_query', async (q) => {
   }
 
   // Menu
-  if (data === 'ads_list')    return api ? showAds(chatId, api)     : noKeys(chatId);
-  if (data === 'orders_list') return api ? showOrders(chatId, api)  : noKeys(chatId);
-  if (data === 'balance')     return api ? showBalance(chatId, api) : noKeys(chatId);
-  if (data === 'analytics')   return api ? showAnalytics(chatId, api): noKeys(chatId);
+  if (data === 'menu_home')    return api ? showMenu(chatId)             : noKeys(chatId);
+  if (data === 'ads_list')     return api ? showAds(chatId, api)          : noKeys(chatId);
+  if (data === 'orders_list')  return api ? showOrders(chatId, api)       : noKeys(chatId);
+  if (data === 'balance')      return api ? showBalance(chatId, api)      : noKeys(chatId);
+  if (data === 'analytics')    return api ? showAnalytics(chatId, api)    : noKeys(chatId);
 
   if (data === 'chat_menu') {
     return send(chatId,'💬 Select an order via /orders then tap Chat, or open the Mini App.',
