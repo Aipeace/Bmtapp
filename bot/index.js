@@ -118,7 +118,9 @@ bot.onText(/\/setup/, async (msg) => {
   if (!user) return send(chatId, 'Please /start first.');
   if (!user.active) return send(chatId, '🚫 Account suspended.');
 
-  sess(chatId).step = 'awaiting_api_key';
+  const session = sess(chatId);
+  session.step = 'awaiting_api_key';
+  session.pendingTestnet = false;
   send(chatId,
     `🔑 *Bybit API Setup*\n\n` +
     `To connect your Bybit account:\n\n` +
@@ -126,7 +128,9 @@ bot.onText(/\/setup/, async (msg) => {
     `2. Account → API Management → Create New Key\n` +
     `3. Enable: *Read* + *Trade* permissions\n` +
     `4. Add your server IP (or leave open for now)\n\n` +
-    `*Step 1 of 2 — Paste your API Key:*`
+    `*Step 1 of 2 — Paste your API Key:*
+` +
+    `_Tip: Reply with \`TESTNET\` first if you're connecting a testnet key._`
   );
 });
 
@@ -536,6 +540,10 @@ bot.on('message', async (msg) => {
 
   // ── API key setup flow ──
   if (s.step === 'awaiting_api_key') {
+    if (text.toLowerCase() === 'testnet') {
+      s.pendingTestnet = true;
+      return send(chatId, '✅ Testnet mode enabled. Now paste your API Key:');
+    }
     s.pendingKey = text;
     s.step       = 'awaiting_api_secret';
     return send(chatId, '✅ API Key saved.\n\n*Step 2 of 2 — Paste your API Secret:*');
@@ -544,10 +552,12 @@ bot.on('message', async (msg) => {
   if (s.step === 'awaiting_api_secret') {
     const apiKey    = s.pendingKey;
     const apiSecret = text;
+    const testnet   = s.pendingTestnet === true;
     delete s.pendingKey;
+    delete s.pendingTestnet;
     s.step = null;
     pool.evict(chatId);
-    store.upsert(chatId, { apiKey, apiSecret, testnet: false });
+    store.upsert(chatId, { apiKey, apiSecret, testnet });
     await send(chatId,
       `✅ *Bybit API Keys Saved!*\n\n` +
       `Your account is now connected. Use /menu to start trading.`,
