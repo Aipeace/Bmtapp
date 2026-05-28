@@ -17,6 +17,8 @@ services:
         value: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
       - key: MINI_APP_URL
         sync: false          # fill in after first deploy
 
@@ -37,6 +39,8 @@ services:
       - key: BYBIT_TESTNET
         value: false
       - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
         sync: false
       - key: MINI_APP_URL
         sync: false
