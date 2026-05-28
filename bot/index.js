@@ -603,7 +603,7 @@ cron.schedule('*/2 * * * *', async () => {
     for (let i = alerts.length - 1; i >= 0; i--) {
       const a = alerts[i];
       try {
-        const r   = await api.getMarketAds({ tokenId:a.token, currencyId:a.currency, side:a.side==='SELL'?'0':'1', size:1 });
+        const r   = await api.getMarketAds({ tokenId:a.token, currencyId:a.currency, side:a.side==='SELL'?'1':'0', size:1 });
         const top = r.result?.items?.[0];
         if (!top) continue;
         const p   = parseFloat(top.price);
