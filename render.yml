@@ -1,0 +1,46 @@
+services:
+  # ── Web Service: Mini App + REST API ────────────────────────────────────────
+  - type: web
+    name: bybit-p2p-server
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BYBIT_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: BYBIT_API_SECRET
+        sync: false
+      - key: BYBIT_TESTNET
+        value: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: MINI_APP_URL
+        sync: false          # fill in after first deploy
+
+  # ── Background Worker: Telegram Bot ─────────────────────────────────────────
+  - type: worker
+    name: bybit-p2p-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run bot
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BYBIT_API_KEY
+        sync: false
+      - key: BYBIT_API_SECRET
+        sync: false
+      - key: BYBIT_TESTNET
+        value: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADMIN_TELEGRAM_ID
+        sync: false
+      - key: MINI_APP_URL
+        sync: false
