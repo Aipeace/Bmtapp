@@ -3,24 +3,23 @@
  * Multi-user Bybit P2P Merchant — Express server for Render
  *
  * Routes:
- *   /                         → public/index.html  (Mini App)
- *   /api/me                   → current user profile + keys status
- *   /api/keys                 → save / delete Bybit keys
- *   /api/balance              → user's Bybit balance
- *   /api/profile              → user's P2P profile
- *   /api/payment-methods
- *   /api/tokens
- *   /api/currencies
- *   /api/market/ads
- *   /api/ads                  → CRUD
- *   /api/orders               → list + actions
- *   /api/orders/history
- *   /api/orders/:id
- *   /api/orders/:id/pay|release|cancel|appeal
- *   /api/orders/:id/messages  → chat
- *   /api/admin/users          → [ADMIN] list all users
- *   /api/admin/users/:id      → [ADMIN] get / suspend / delete user
- *   /api/admin/stats          → [ADMIN] platform stats
+ *   /                         → public/index.html  (Mini App SPA)
+ *   GET  /api/health
+ *   GET  /api/me              → current user profile + key status
+ *   POST /api/keys            → save Bybit keys
+ *   DEL  /api/keys            → remove Bybit keys
+ *   GET  /api/balance
+ *   GET  /api/profile
+ *   GET  /api/payment-methods
+ *   GET  /api/tokens
+ *   GET  /api/currencies
+ *   GET  /api/market/ads
+ *   CRUD /api/ads  /api/ads/:id  /api/ads/:id/status
+ *   GET  /api/orders  /api/orders/history  /api/orders/:id
+ *   POST /api/orders/:id/pay|release|cancel|appeal
+ *   GET|POST /api/orders/:id/messages
+ *   GET|PATCH|DELETE /api/admin/users  /api/admin/users/:id
+ *   GET  /api/admin/stats
  */
 
 'use strict';
@@ -33,18 +32,15 @@ const store   = require('./lib/store');
 const pool    = require('./lib/bybit-pool');
 const { requireAuth, requireKeys, requireAdmin } = require('./lib/auth');
 
-// ── Startup env validation ────────────────────────────────────────────────────
+// ── Startup validation ────────────────────────────────────────────────────────
 if (!process.env.TELEGRAM_BOT_TOKEN) {
   console.error('❌  TELEGRAM_BOT_TOKEN is required'); process.exit(1);
 }
 if (!process.env.ADMIN_TELEGRAM_ID) {
   console.warn('⚠️   ADMIN_TELEGRAM_ID not set — admin routes will be inaccessible');
 }
-// FIX: Warn operators who forgot to set APP_SECRET so secrets aren't encrypted
-// with the insecure default key
 if (!process.env.APP_SECRET || process.env.APP_SECRET === 'change_me_32_chars_exactly!!!!!!') {
-  console.warn('⚠️   APP_SECRET is not set or is using the default value.');
-  console.warn('     Bybit API secrets will be encrypted with the insecure default key.');
+  console.warn('⚠️   APP_SECRET is not set or is the default — API secrets use the insecure fallback key.');
   console.warn('     Set APP_SECRET to a random 32-character string in your environment.');
 }
 
@@ -61,6 +57,30 @@ app.use((req, res, next) => {
   next();
 });
 
+// FIX #13: Per-user rate limiter — max 10 requests per second per Telegram ID.
+// Bybit's P2P API enforces similar limits; this prevents key bans from frontend polling.
+const rateLimits = new Map(); // telegramId → { count, resetAt }
+
+function checkRate(req, res, next) {
+  const id  = req.telegramId;
+  if (!id) return next(); // unauthenticated requests fall through (handled later)
+  const now = Date.now();
+  let   rl  = rateLimits.get(id) || { count: 0, resetAt: now + 1000 };
+  if (now > rl.resetAt) rl = { count: 0, resetAt: now + 1000 };
+  rl.count++;
+  rateLimits.set(id, rl);
+  if (rl.count > 10) return res.status(429).json({ error: 'Rate limit exceeded — slow down.' });
+  next();
+}
+
+// Prune the rate limit map every 60 s to prevent unbounded growth
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, rl] of rateLimits.entries()) {
+    if (now > rl.resetAt + 5000) rateLimits.delete(id);
+  }
+}, 60_000);
+
 const wrap = fn => (req, res) => fn(req, res).catch(e => {
   console.error(e);
   res.status(500).json({ error: e.message });
@@ -73,8 +93,7 @@ app.get('/api/health', (req, res) => {
 
 // ── User self-service ─────────────────────────────────────────────────────────
 
-/* GET /api/me — returns user record + whether keys are set */
-app.get('/api/me', requireAuth, (req, res) => {
+app.get('/api/me', requireAuth, checkRate, (req, res) => {
   const u = req.user;
   res.json({
     telegramId:   u.telegramId,
@@ -88,8 +107,7 @@ app.get('/api/me', requireAuth, (req, res) => {
   });
 });
 
-/* POST /api/keys — save or update Bybit API keys */
-app.post('/api/keys', requireAuth, (req, res) => {
+app.post('/api/keys', requireAuth, checkRate, (req, res) => {
   const { apiKey, apiSecret, testnet } = req.body;
   if (!apiKey || !apiSecret) {
     return res.status(400).json({ error: 'apiKey and apiSecret are required' });
@@ -103,62 +121,75 @@ app.post('/api/keys', requireAuth, (req, res) => {
   res.json({ ok: true, testnet: user.testnet });
 });
 
-/* DELETE /api/keys — remove saved keys */
-app.delete('/api/keys', requireAuth, (req, res) => {
+app.delete('/api/keys', requireAuth, checkRate, (req, res) => {
   pool.evict(req.telegramId);
   store.upsert(req.telegramId, { apiKey: '', apiSecret: '' });
   res.json({ ok: true });
 });
 
-// ── All routes below require valid Bybit keys ─────────────────────────────────
+// ── All routes below require valid Bybit keys + rate check ────────────────────
 
-/* Account */
-app.get('/api/balance',         requireKeys, wrap(async (req, res) => res.json(await req.bybit.getAccountBalance())));
-app.get('/api/profile',         requireKeys, wrap(async (req, res) => res.json(await req.bybit.getP2PProfile())));
-app.get('/api/payment-methods', requireKeys, wrap(async (req, res) => res.json(await req.bybit.getPaymentMethods())));
-app.get('/api/tokens',          requireKeys, wrap(async (req, res) => res.json(await req.bybit.getSupportedTokens())));
-app.get('/api/currencies',      requireKeys, wrap(async (req, res) => res.json(await req.bybit.getSupportedCurrencies())));
+app.get('/api/balance',         requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getAccountBalance())));
+app.get('/api/profile',         requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getP2PProfile())));
+app.get('/api/payment-methods', requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getPaymentMethods())));
+app.get('/api/tokens',          requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getSupportedTokens())));
+app.get('/api/currencies',      requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getSupportedCurrencies())));
 
-/* Market */
-app.get('/api/market/ads', requireKeys, wrap(async (req, res) => res.json(await req.bybit.getMarketAds(req.query))));
+app.get('/api/market/ads', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.getMarketAds(req.query))
+));
 
-/* Ads */
-app.get('/api/ads',     requireKeys, wrap(async (req, res) => res.json(await req.bybit.getMyAds({ page: req.query.page || 1, size: req.query.size || 20 }))));
-app.post('/api/ads',    requireKeys, wrap(async (req, res) => res.json(await req.bybit.createAd(req.body))));
-app.get('/api/ads/:id', requireKeys, wrap(async (req, res) => res.json(await req.bybit.getAdDetail(req.params.id))));
-app.put('/api/ads/:id', requireKeys, wrap(async (req, res) => res.json(await req.bybit.updateAd(req.params.id, req.body))));
-app.patch('/api/ads/:id/status', requireKeys, wrap(async (req, res) => res.json(await req.bybit.toggleAdStatus(req.params.id, req.body.status))));
-app.delete('/api/ads/:id', requireKeys, wrap(async (req, res) => res.json(await req.bybit.deleteAd(req.params.id))));
+// Ads
+app.get('/api/ads',     requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.getMyAds({ page: req.query.page || 1, size: req.query.size || 20 }))
+));
+app.post('/api/ads',    requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.createAd(req.body))
+));
+app.get('/api/ads/:id', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.getAdDetail(req.params.id))
+));
+app.put('/api/ads/:id', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.updateAd(req.params.id, req.body))
+));
+app.patch('/api/ads/:id/status', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.toggleAdStatus(req.params.id, req.body.status))
+));
+app.delete('/api/ads/:id', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.deleteAd(req.params.id))
+));
 
-/* Orders — /history MUST come before /:id */
-app.get('/api/orders/history', requireKeys, wrap(async (req, res) => res.json(await req.bybit.getOrderHistory(Number(req.query.days) || 30))));
-app.get('/api/orders',         requireKeys, wrap(async (req, res) => res.json(await req.bybit.getOrders({ page: req.query.page || 1, size: req.query.size || 20, status: req.query.status || '' }))));
-app.get('/api/orders/:id',     requireKeys, wrap(async (req, res) => res.json(await req.bybit.getOrderDetail(req.params.id))));
-app.post('/api/orders/:id/pay',     requireKeys, wrap(async (req, res) => res.json(await req.bybit.confirmPayment(req.params.id))));
-app.post('/api/orders/:id/release', requireKeys, wrap(async (req, res) => res.json(await req.bybit.releaseAsset(req.params.id))));
-app.post('/api/orders/:id/cancel',  requireKeys, wrap(async (req, res) => res.json(await req.bybit.cancelOrder(req.params.id, req.body.cancelType || '1'))));
-app.post('/api/orders/:id/appeal',  requireKeys, wrap(async (req, res) => res.json(await req.bybit.appealOrder(req.params.id, req.body.appealType, req.body.appealNote))));
-
-/* Chat */
-app.get('/api/orders/:id/messages',  requireKeys, wrap(async (req, res) => res.json(await req.bybit.getChatMessages(req.params.id, Number(req.query.size) || 50))));
-app.post('/api/orders/:id/messages', requireKeys, wrap(async (req, res) => res.json(await req.bybit.sendChatMessage(req.params.id, req.body.message, req.body.msgType || 'str'))));
+// Orders — /history MUST be registered before /:id
+app.get('/api/orders/history', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.getOrderHistory(Number(req.query.days) || 30))
+));
+app.get('/api/orders', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.getOrders({
+    page:   req.query.page   || 1,
+    size:   req.query.size   || 20,
+    status: req.query.status || '',
+  }))
+));
+app.get('/api/orders/:id',            requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getOrderDetail(req.params.id))));
+app.post('/api/orders/:id/pay',       requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.confirmPayment(req.params.id))));
+app.post('/api/orders/:id/release',   requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.releaseAsset(req.params.id))));
+app.post('/api/orders/:id/cancel',    requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.cancelOrder(req.params.id, req.body.cancelType || '1'))));
+app.post('/api/orders/:id/appeal',    requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.appealOrder(req.params.id, req.body.appealType, req.body.appealNote))));
+app.get('/api/orders/:id/messages',   requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getChatMessages(req.params.id, Number(req.query.size) || 50))));
+app.post('/api/orders/:id/messages',  requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.sendChatMessage(req.params.id, req.body.message, req.body.msgType || 'str'))));
 
 // ── Admin routes ──────────────────────────────────────────────────────────────
 
-/* GET /api/admin/stats */
 app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const users    = store.getAll();
-  const active   = users.filter(u => u.active);
-  const withKeys = users.filter(u => u.apiKey && u.apiSecret);
+  const users = store.getAll();
   res.json({
     totalUsers:  users.length,
-    activeUsers: active.length,
-    withKeys:    withKeys.length,
+    activeUsers: users.filter(u => u.active).length,
+    withKeys:    users.filter(u => u.apiKey && u.apiSecret).length,
     adminId:     Number(process.env.ADMIN_TELEGRAM_ID),
   });
 });
 
-/* GET /api/admin/users */
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = store.getAll().map(u => ({
     telegramId:   u.telegramId,
@@ -174,16 +205,13 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
   res.json({ users });
 });
 
-/* GET /api/admin/users/:id */
 app.get('/api/admin/users/:id', requireAdmin, (req, res) => {
   const u = store.get(req.params.id);
   if (!u) return res.status(404).json({ error: 'User not found' });
-  // Never expose raw API secret to admin panel
-  const { apiSecret, ...safe } = u;
+  const { apiSecret, ...safe } = u; // never expose raw secret
   res.json({ ...safe, hasKeys: !!(u.apiKey && u.apiSecret) });
 });
 
-/* PATCH /api/admin/users/:id — suspend or reinstate */
 app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
   const u = store.get(req.params.id);
   if (!u) return res.status(404).json({ error: 'User not found' });
@@ -192,7 +220,6 @@ app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
   res.json({ ok: true, active: updated.active });
 });
 
-/* DELETE /api/admin/users/:id */
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   if (store.isAdmin(req.params.id)) return res.status(400).json({ error: 'Cannot delete admin account' });
   pool.evict(Number(req.params.id));
@@ -200,7 +227,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Static: serve Mini App (SPA catch-all) ────────────────────────────────────
+// ── Static: Mini App SPA ──────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 

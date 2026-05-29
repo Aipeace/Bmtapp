@@ -1,5 +1,14 @@
+# render.yml — Render deployment config
+#
+# Two services:
+#   bybit-p2p-server  (web)    — Express API + Mini App frontend
+#   bybit-p2p-bot     (worker) — Telegram Bot with background jobs
+#
+# NOTE: api/index.js is NOT used here. It is a Vercel-only single-user
+# serverless function. The Render multi-user backend is server.js.
+
 services:
-  # ── Web Service: Mini App + REST API ────────────────────────────────────────
+  # ── Web Service: Mini App + REST API ─────────────────────────────────────────
   - type: web
     name: bybit-p2p-server
     runtime: node
@@ -9,20 +18,26 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: BYBIT_API_KEY
-        sync: false          # set manually in Render dashboard
-      - key: BYBIT_API_SECRET
-        sync: false
-      - key: BYBIT_TESTNET
-        value: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: ADMIN_TELEGRAM_ID
         sync: false
       - key: MINI_APP_URL
-        sync: false          # fill in after first deploy
+        sync: false          # fill in after first deploy (your Render URL)
+      - key: APP_SECRET
+        sync: false          # random 32-char string — encrypts stored API secrets
+      # Single-user Vercel keys — not used by server.js multi-user mode
+      # but kept here so the env is complete if api/index.js is ever tested locally
+      - key: BYBIT_API_KEY
+        sync: false
+      - key: BYBIT_API_SECRET
+        sync: false
+      - key: BYBIT_TESTNET
+        value: false
 
-  # ── Background Worker: Telegram Bot ─────────────────────────────────────────
+  # ── Background Worker: Telegram Bot ──────────────────────────────────────────
+  # APP_SECRET must match the web service value exactly so the bot can
+  # encrypt/decrypt the same stored API secrets.
   - type: worker
     name: bybit-p2p-bot
     runtime: node
@@ -32,15 +47,17 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: BYBIT_API_KEY
-        sync: false
-      - key: BYBIT_API_SECRET
-        sync: false
-      - key: BYBIT_TESTNET
-        value: false
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: ADMIN_TELEGRAM_ID
         sync: false
       - key: MINI_APP_URL
         sync: false
+      - key: APP_SECRET
+        sync: false          # NEW — required for store encryption to match web service
+      - key: BYBIT_API_KEY
+        sync: false
+      - key: BYBIT_API_SECRET
+        sync: false
+      - key: BYBIT_TESTNET
+        value: false
