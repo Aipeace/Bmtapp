@@ -39,7 +39,17 @@ const ADMIN_ID     = Number(process.env.ADMIN_TELEGRAM_ID || 0);
 const sessions      = new Map(); // chatId → { step, chatMode, activeOrder, ... }
 const priceAlerts   = new Map(); // chatId → [{ token, currency, side, targetPrice, above }]
 const orderWatchers = new Set(); // chatIds watching for new orders
-const orderSnap     = new Map(); // `${userId}:${orderId}` → last known order object
+const orderSnap     = new Map(); // `${chatId}:${orderId}` → last known order object
+
+// ── FIX #10: Restore persisted subscriptions on startup ──────────────────────
+// Render free tier restarts the bot regularly. Users who ran /watch or /alert
+// had their subscriptions silently lost. We now persist both to data/users.json
+// and restore them here so they survive restarts with no user action needed.
+for (const u of store.getAll()) {
+  if (u.watchOrders)          orderWatchers.add(u.telegramId);
+  if (u.priceAlerts?.length)  priceAlerts.set(u.telegramId, u.priceAlerts);
+}
+console.log(`♻️  Restored ${orderWatchers.size} order watchers, ${priceAlerts.size} alert sets from store`);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n, d = 2) =>
@@ -47,12 +57,12 @@ const fmt = (n, d = 2) =>
 
 const sideLabel   = s => String(s) === '0' ? '🟢 BUY' : '🔴 SELL';
 const statusLabel = s => ({
-  '5' :'🔄 In Progress',
-  '10':'⏳ Waiting Payment',
-  '20':'💳 Paid – Awaiting Release',
-  '30':'✅ Completed',
-  '40':'❌ Cancelled',
-  '50':'⚠️ Appeal',
+  '5' : '🔄 In Progress',
+  '10': '⏳ Waiting Payment',
+  '20': '💳 Paid – Awaiting Release',
+  '30': '✅ Completed',
+  '40': '❌ Cancelled',
+  '50': '⚠️ Appeal',
 })[String(s)] || `Status ${s}`;
 
 function sess(chatId) {
@@ -60,14 +70,26 @@ function sess(chatId) {
   return sessions.get(chatId);
 }
 
+// FIX #17: send() now detects "bot was blocked by the user" and auto-cleans up:
+//   - removes from orderWatchers so the cron doesn't keep trying
+//   - suspends the user record so stale entries don't pollute broadcasts
 async function send(chatId, text, extra = {}) {
-  try { return await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...extra }); }
-  catch (e) { console.error(`[send] ${chatId}:`, e.message); }
+  try {
+    return await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...extra });
+  } catch (e) {
+    if (e.message?.includes('bot was blocked') || e.message?.includes('user is deactivated')) {
+      orderWatchers.delete(chatId);
+      store.upsert(chatId, { watchOrders: false, active: false });
+      console.log(`[send] User ${chatId} blocked the bot — auto-suspended`);
+    } else {
+      console.error(`[send] ${chatId}:`, e.message);
+    }
+  }
 }
 
 function kb(rows) { return { reply_markup: { inline_keyboard: rows } }; }
 
-// FIX: getApi() now checks user.active so suspended users can't use API commands
+// getApi() checks active so suspended users can't reach Bybit
 function getApi(chatId) {
   const user = store.get(chatId);
   if (!user?.apiKey || !user?.apiSecret) return null;
@@ -158,20 +180,35 @@ bot.onText(/^\/mykeys$/, (msg) => {
   );
 });
 
-// FIX: All command regexes anchored with ^ to prevent partial matches
-// e.g. /\/ads/ would also fire for "/adsomething"
+// All command regexes anchored with ^ and $ to prevent partial matches
 bot.onText(/^\/ads$/,       (msg) => { const a = getApi(msg.chat.id); a ? showAds(msg.chat.id, a)        : noKeys(msg.chat.id); });
 bot.onText(/^\/orders$/,    (msg) => { const a = getApi(msg.chat.id); a ? showOrders(msg.chat.id, a)     : noKeys(msg.chat.id); });
 bot.onText(/^\/balance$/,   (msg) => { const a = getApi(msg.chat.id); a ? showBalance(msg.chat.id, a)    : noKeys(msg.chat.id); });
 bot.onText(/^\/analytics$/, (msg) => { const a = getApi(msg.chat.id); a ? showAnalytics(msg.chat.id, a) : noKeys(msg.chat.id); });
 
-// FIX: /alerts anchored so it doesn't also fire for "/alert TOKEN..." messages
 bot.onText(/^\/alerts$/,      (msg) => listAlerts(msg.chat.id));
-bot.onText(/^\/clearalerts$/, (msg) => { priceAlerts.delete(msg.chat.id); send(msg.chat.id, '✅ Alerts cleared.'); });
+bot.onText(/^\/clearalerts$/, (msg) => {
+  const chatId = msg.chat.id;
+  priceAlerts.delete(chatId);
+  // FIX #10: persist the cleared state
+  store.upsert(chatId, { priceAlerts: [] });
+  send(chatId, '✅ Alerts cleared.');
+});
 
-// FIX: Added /unwatch command so users can unsubscribe from order notifications
-bot.onText(/^\/watch$/,   (msg) => { orderWatchers.add(msg.chat.id);    send(msg.chat.id, '👁️ Subscribed to order notifications. Use /unwatch to stop.'); });
-bot.onText(/^\/unwatch$/, (msg) => { orderWatchers.delete(msg.chat.id); send(msg.chat.id, '🔕 Unsubscribed from order notifications.'); });
+// FIX #10: /watch and /unwatch now persist to store so they survive restarts
+bot.onText(/^\/watch$/, (msg) => {
+  const chatId = msg.chat.id;
+  orderWatchers.add(chatId);
+  store.upsert(chatId, { watchOrders: true });
+  send(chatId, '👁️ Subscribed to order notifications. Use /unwatch to stop.');
+});
+
+bot.onText(/^\/unwatch$/, (msg) => {
+  const chatId = msg.chat.id;
+  orderWatchers.delete(chatId);
+  store.upsert(chatId, { watchOrders: false });
+  send(chatId, '🔕 Unsubscribed from order notifications.');
+});
 
 bot.onText(/^\/alert (.+)/, (msg, match) => {
   const chatId = msg.chat.id;
@@ -190,13 +227,15 @@ bot.onText(/^\/alert (.+)/, (msg, match) => {
     targetPrice: parseFloat(price),
     above:       dir.toUpperCase() === 'ABOVE',
   });
+  // FIX #10: persist updated alert list after every push
+  store.upsert(chatId, { priceAlerts: priceAlerts.get(chatId) });
   send(chatId, `🔔 Alert set for *${token}/${currency} ${side}* ${dir.toUpperCase() === 'ABOVE' ? '⬆️ above' : '⬇️ below'} \`${fmt(price)}\``);
 });
 
 bot.onText(/^\/help$/, (msg) => {
   const isAdmin = store.isAdmin(msg.chat.id);
   const lines = [
-    '*📖 Commands*','',
+    '*📖 Commands*', '',
     '/start — Register / welcome',
     '/setup — Connect your Bybit API keys',
     '/menu — Main dashboard',
@@ -212,7 +251,7 @@ bot.onText(/^\/help$/, (msg) => {
     '/unwatch — Unsubscribe from order notifications',
   ];
   if (isAdmin) {
-    lines.push('', '*👑 Admin Commands*','',
+    lines.push('', '*👑 Admin Commands*', '',
       '/admin — Admin panel',
       '/users — List all users',
       '/suspend <telegramId> — Suspend a user',
@@ -262,10 +301,10 @@ async function showAds(chatId, api) {
         `💲 \`${fmt(ad.price)}\`  📦 \`${fmt(ad.quantity)}\`\n` +
         `🔢 \`${fmt(ad.minAmount,0)}–${fmt(ad.maxAmount,0)}\`\n` +
         `🆔 \`${ad.id}\``,
-        { parse_mode:'Markdown', reply_markup:{ inline_keyboard:[[
-          { text: on ? '⏸ Pause':'▶️ Activate', callback_data:`ad_toggle_${ad.id}_${ad.status}` },
-          { text: '✏️ Edit',   callback_data:`ad_edit_${ad.id}` },
-          { text: '🗑 Delete', callback_data:`ad_del_${ad.id}`  },
+        { parse_mode: 'Markdown', reply_markup: { inline_keyboard: [[
+          { text: on ? '⏸ Pause' : '▶️ Activate', callback_data: `ad_toggle_${ad.id}_${ad.status}` },
+          { text: '✏️ Edit',   callback_data: `ad_edit_${ad.id}` },
+          { text: '🗑 Delete', callback_data: `ad_del_${ad.id}`  },
         ]]}}
       );
     }
@@ -283,17 +322,17 @@ async function showOrders(chatId, api, statusFilter = '') {
     for (const o of orders.slice(0, 8)) {
       const s    = String(o.status);
       const btns = [];
-      if (s === '10')              btns.push({ text:'✅ Mark Paid', callback_data:`ord_pay_${o.id}` });
-      if (s === '20')              btns.push({ text:'🔓 Release',   callback_data:`ord_release_${o.id}` });
-      if (['5','10'].includes(s))  btns.push({ text:'❌ Cancel',    callback_data:`ord_cancel_${o.id}` });
-      if (['10','20'].includes(s)) btns.push({ text:'💬 Chat',      callback_data:`ord_chat_${o.id}` });
+      if (s === '10')              btns.push({ text: '✅ Mark Paid', callback_data: `ord_pay_${o.id}` });
+      if (s === '20')              btns.push({ text: '🔓 Release',   callback_data: `ord_release_${o.id}` });
+      if (['5','10'].includes(s))  btns.push({ text: '❌ Cancel',    callback_data: `ord_cancel_${o.id}` });
+      if (['10','20'].includes(s)) btns.push({ text: '💬 Chat',      callback_data: `ord_chat_${o.id}` });
       await bot.sendMessage(chatId,
         `${statusLabel(o.status)} — *${sideLabel(o.side)}*\n` +
         `💱 ${o.tokenId}/${o.currencyId}\n` +
         `💲 \`${fmt(o.amount)} ${o.currencyId}\`  📦 \`${fmt(o.quantity,4)} ${o.tokenId}\`\n` +
         `🕐 ${new Date(Number(o.createDate)).toLocaleString()}\n` +
         `🆔 \`${o.id}\``,
-        { parse_mode:'Markdown', ...(btns.length ? { reply_markup:{ inline_keyboard:[btns] } } : {}) }
+        { parse_mode: 'Markdown', ...(btns.length ? { reply_markup: { inline_keyboard: [btns] } } : {}) }
       );
     }
   } catch (e) { send(chatId, `❌ ${e.message}`); }
@@ -306,7 +345,9 @@ async function showBalance(chatId, api) {
     const res   = await api.getAccountBalance();
     if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
     const coins = (res.result?.list?.[0]?.coin || []).filter(c => parseFloat(c.walletBalance) > 0);
-    const lines = coins.map(c => `• *${c.coin}*: \`${fmt(c.walletBalance,6)}\` (avail: \`${fmt(c.transferBalance,6)}\`)`).join('\n');
+    const lines = coins.map(c =>
+      `• *${c.coin}*: \`${fmt(c.walletBalance,6)}\` (avail: \`${fmt(c.transferBalance,6)}\`)`
+    ).join('\n');
     send(chatId, `💰 *Fund Balance*\n\n${lines || 'No funds found.'}`);
   } catch (e) { send(chatId, `❌ ${e.message}`); }
 }
@@ -319,11 +360,9 @@ async function showAnalytics(chatId, api) {
     if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
     const all  = res.result?.items || [];
     const done = all.filter(o => String(o.status) === '30');
-    const vol  = done.reduce((s,o) => s + parseFloat(o.amount||0), 0);
-    const qty  = done.reduce((s,o) => s + parseFloat(o.quantity||0), 0);
-    const rate = all.length ? ((done.length/all.length)*100).toFixed(1) : '0.0';
-    // FIX: cancelled filter was using strict === '40' on a value that may be a number.
-    // Use String() coercion consistently for all status comparisons.
+    const vol  = done.reduce((s,o) => s + parseFloat(o.amount   || 0), 0);
+    const qty  = done.reduce((s,o) => s + parseFloat(o.quantity || 0), 0);
+    const rate = all.length ? ((done.length / all.length) * 100).toFixed(1) : '0.0';
     const cancelled = all.filter(o => String(o.status) === '40').length;
     send(chatId,
       `📊 *Analytics — Last 30 Days*\n\n` +
@@ -331,8 +370,8 @@ async function showAnalytics(chatId, api) {
       `📈 Rate: *${rate}%*\n\n` +
       `💱 Volume: \`${fmt(vol)}\` (fiat)\n` +
       `📦 Qty: \`${fmt(qty,4)}\` USDT\n\n` +
-      `🟢 Buys: *${done.filter(o=>String(o.side)==='0').length}*  🔴 Sells: *${done.filter(o=>String(o.side)==='1').length}*`,
-      kb([[{ text:'🖥️ Full Stats in Mini App', web_app:{ url:`${MINI_APP_URL}#analytics` } }]])
+      `🟢 Buys: *${done.filter(o => String(o.side)==='0').length}*  🔴 Sells: *${done.filter(o => String(o.side)==='1').length}*`,
+      kb([[{ text: '🖥️ Full Stats in Mini App', web_app: { url: `${MINI_APP_URL}#analytics` } }]])
     );
   } catch (e) { send(chatId, `❌ ${e.message}`); }
 }
@@ -348,9 +387,12 @@ async function openOrderChat(chatId, orderId) {
     const res  = await api.getChatMessages(orderId, 15);
     const msgs = (res.result?.list || []).slice().reverse();
     const hist = msgs.map(m =>
-      `*${m.isSelf||m.userId==='me'?'You':'Counterparty'}* [${new Date(Number(m.createDate)).toLocaleTimeString()}]:\n${m.message||m.content||''}`
+      `*${m.isSelf || m.userId === 'me' ? 'You' : 'Counterparty'}* [${new Date(Number(m.createDate)).toLocaleTimeString()}]:\n${m.message || m.content || ''}`
     ).join('\n\n');
-    await send(chatId, `💬 *Chat — Order* \`${orderId}\`\n\n${hist||'_No messages yet_'}`, kb([[{text:'⬅️ Back',callback_data:'orders_list'}]]));
+    await send(chatId,
+      `💬 *Chat — Order* \`${orderId}\`\n\n${hist || '_No messages yet_'}`,
+      kb([[{ text: '⬅️ Back', callback_data: 'orders_list' }]])
+    );
     send(chatId, '✏️ Type your message to send it to the counterparty:');
   } catch (e) { send(chatId, `❌ ${e.message}`); }
 }
@@ -359,8 +401,8 @@ async function openOrderChat(chatId, orderId) {
 function listAlerts(chatId) {
   const list = priceAlerts.get(chatId) || [];
   if (!list.length) return send(chatId, '📭 No alerts. Use `/alert TOKEN CURRENCY SIDE PRICE ABOVE|BELOW`');
-  const lines = list.map((a,i) =>
-    `${i+1}. *${a.token}/${a.currency} ${a.side}* ${a.above?'⬆️ Above':'⬇️ Below'} \`${fmt(a.targetPrice)}\``
+  const lines = list.map((a, i) =>
+    `${i+1}. *${a.token}/${a.currency} ${a.side}* ${a.above ? '⬆️ Above' : '⬇️ Below'} \`${fmt(a.targetPrice)}\``
   ).join('\n');
   send(chatId, `🔔 *Active Alerts*\n\n${lines}\n\n/clearalerts to remove all.`);
 }
@@ -377,9 +419,9 @@ bot.onText(/^\/admin$/, (msg) => {
     `✅ Active:        *${active}*\n` +
     `🔑 With API keys: *${withKey}*`,
     kb([
-      [{ text:'👥 List Users',    callback_data:'admin_users'     }],
-      [{ text:'📊 Platform Stats',callback_data:'admin_stats'     }],
-      [{ text:'📢 Broadcast',     callback_data:'admin_broadcast' }],
+      [{ text: '👥 List Users',     callback_data: 'admin_users'     }],
+      [{ text: '📊 Platform Stats', callback_data: 'admin_stats'     }],
+      [{ text: '📢 Broadcast',      callback_data: 'admin_broadcast' }],
     ])
   );
 });
@@ -390,7 +432,7 @@ bot.onText(/^\/users$/, (msg) => {
   if (!users.length) return send(msg.chat.id, '📭 No users yet.');
   const lines = users.map(u =>
     `• *${u.firstName||'?'}* @${u.username||'none'} \`${u.telegramId}\` ` +
-    `${u.active?'✅':'🚫'} ${u.apiKey?'🔑':'❌'}`
+    `${u.active ? '✅' : '🚫'} ${u.apiKey ? '🔑' : '❌'}`
   ).join('\n');
   send(msg.chat.id, `👥 *Registered Users*\n\n${lines}`);
 });
@@ -447,20 +489,20 @@ bot.on('callback_query', async (q) => {
 
   const api = getApi(chatId);
 
-  // Setup / keys
+  // Keys
   if (data === 'remove_keys') {
     pool.evict(chatId);
-    store.upsert(chatId, { apiKey:'', apiSecret:'' });
+    store.upsert(chatId, { apiKey: '', apiSecret: '' });
     return send(chatId, '🗑 API keys removed. Use /setup to add new ones.');
   }
 
-  // Menu
+  // Menu navigation
   if (data === 'menu_home')   return api ? showMenu(chatId)          : noKeys(chatId);
   if (data === 'ads_list')    return api ? showAds(chatId, api)       : noKeys(chatId);
   if (data === 'balance')     return api ? showBalance(chatId, api)   : noKeys(chatId);
   if (data === 'analytics')   return api ? showAnalytics(chatId, api) : noKeys(chatId);
 
-  // FIX: orders_list now clears chatMode so users don't accidentally stay in chat mode
+  // orders_list clears chatMode so users don't accidentally stay in chat mode after navigating back
   if (data === 'orders_list') {
     const s = sess(chatId);
     s.chatMode    = false;
@@ -469,25 +511,32 @@ bot.on('callback_query', async (q) => {
   }
 
   if (data === 'chat_menu') {
-    return send(chatId,'💬 Select an order via /orders then tap Chat, or open the Mini App.',
-      kb([[{text:'🖥️ Open Mini App',web_app:{url:MINI_APP_URL}}]]));
+    return send(chatId, '💬 Select an order via /orders then tap Chat, or open the Mini App.',
+      kb([[{ text: '🖥️ Open Mini App', web_app: { url: MINI_APP_URL } }]]));
   }
 
   if (data === 'alerts_menu') {
-    return send(chatId,'🔔 *Price Alerts*\n\nUsage: `/alert TOKEN CURRENCY SIDE PRICE ABOVE|BELOW`',
-      kb([[{text:'📋 My Alerts',callback_data:'alerts_list'},{text:'🗑 Clear All',callback_data:'alerts_clear'}]]));
+    return send(chatId, '🔔 *Price Alerts*\n\nUsage: `/alert TOKEN CURRENCY SIDE PRICE ABOVE|BELOW`',
+      kb([[
+        { text: '📋 My Alerts', callback_data: 'alerts_list'  },
+        { text: '🗑 Clear All', callback_data: 'alerts_clear' },
+      ]]));
   }
   if (data === 'alerts_list')  return listAlerts(chatId);
-  if (data === 'alerts_clear') { priceAlerts.delete(chatId); return send(chatId,'✅ Alerts cleared.'); }
+  if (data === 'alerts_clear') {
+    priceAlerts.delete(chatId);
+    store.upsert(chatId, { priceAlerts: [] }); // FIX #10: persist
+    return send(chatId, '✅ Alerts cleared.');
+  }
 
   // Admin callbacks
   if (data === 'admin_users') {
     if (!store.isAdmin(chatId)) return;
     const users = store.getAll();
     const lines = users.map(u =>
-      `• *${u.firstName||'?'}* \`${u.telegramId}\` ${u.active?'✅':'🚫'} ${u.apiKey?'🔑':'❌'}`
+      `• *${u.firstName||'?'}* \`${u.telegramId}\` ${u.active ? '✅' : '🚫'} ${u.apiKey ? '🔑' : '❌'}`
     ).join('\n');
-    return send(chatId, `👥 *Users*\n\n${lines||'None yet.'}`);
+    return send(chatId, `👥 *Users*\n\n${lines || 'None yet.'}`);
   }
   if (data === 'admin_stats') {
     if (!store.isAdmin(chatId)) return;
@@ -495,17 +544,17 @@ bot.on('callback_query', async (q) => {
     return send(chatId,
       `📊 *Platform Stats*\n\n` +
       `Total: *${users.length}*\n` +
-      `Active: *${users.filter(u=>u.active).length}*\n` +
-      `With Keys: *${users.filter(u=>u.apiKey).length}*`
+      `Active: *${users.filter(u => u.active).length}*\n` +
+      `With Keys: *${users.filter(u => u.apiKey).length}*`
     );
   }
   if (data === 'admin_broadcast') {
     if (!store.isAdmin(chatId)) return;
     sess(chatId).step = 'awaiting_broadcast';
-    return send(chatId,'📢 Type the message you want to broadcast to all active users:');
+    return send(chatId, '📢 Type the message you want to broadcast to all active users:');
   }
 
-  // Ad toggle — parse right-to-left to handle IDs with underscores
+  // Ad toggle — parse right-to-left to handle IDs containing underscores
   if (data.startsWith('ad_toggle_')) {
     if (!api) return noKeys(chatId);
     const raw  = data.slice('ad_toggle_'.length);
@@ -515,46 +564,53 @@ bot.on('callback_query', async (q) => {
     const next = cur === '1' ? '2' : '1';
     try {
       const r = await api.toggleAdStatus(adId, next);
-      send(chatId, r.retCode===0 ? `✅ Ad ${next==='1'?'activated 🟢':'paused ⚫'}.` : `❌ ${r.retMsg}`);
-    } catch (e) { send(chatId,`❌ ${e.message}`); }
+      send(chatId, r.retCode === 0 ? `✅ Ad ${next==='1' ? 'activated 🟢' : 'paused ⚫'}.` : `❌ ${r.retMsg}`);
+    } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
 
   if (data.startsWith('ad_edit_')) {
-    const adId = data.replace('ad_edit_','');
-    return send(chatId,'✏️ Edit in Mini App:',kb([[{text:'✏️ Edit Ad',web_app:{url:`${MINI_APP_URL}#ads/edit/${adId}`}}]]));
+    const adId = data.replace('ad_edit_', '');
+    return send(chatId, '✏️ Edit in Mini App:',
+      kb([[{ text: '✏️ Edit Ad', web_app: { url: `${MINI_APP_URL}#ads/edit/${adId}` } }]]));
   }
 
   if (data.startsWith('ad_del_')) {
     if (!api) return noKeys(chatId);
-    const adId = data.replace('ad_del_','');
+    const adId = data.replace('ad_del_', '');
     try {
       const r = await api.deleteAd(adId);
-      send(chatId, r.retCode===0?'🗑 Ad deleted.': `❌ ${r.retMsg}`);
-    } catch(e) { send(chatId,`❌ ${e.message}`); }
+      send(chatId, r.retCode === 0 ? '🗑 Ad deleted.' : `❌ ${r.retMsg}`);
+    } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
 
   if (data.startsWith('ord_pay_')) {
     if (!api) return noKeys(chatId);
-    try { const r=await api.confirmPayment(data.replace('ord_pay_','')); send(chatId,r.retCode===0?'✅ Payment confirmed!': `❌ ${r.retMsg}`); }
-    catch(e){send(chatId,`❌ ${e.message}`);}
+    try {
+      const r = await api.confirmPayment(data.replace('ord_pay_', ''));
+      send(chatId, r.retCode === 0 ? '✅ Payment confirmed!' : `❌ ${r.retMsg}`);
+    } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
   if (data.startsWith('ord_release_')) {
     if (!api) return noKeys(chatId);
-    try { const r=await api.releaseAsset(data.replace('ord_release_','')); send(chatId,r.retCode===0?'🔓 Crypto released!': `❌ ${r.retMsg}`); }
-    catch(e){send(chatId,`❌ ${e.message}`);}
+    try {
+      const r = await api.releaseAsset(data.replace('ord_release_', ''));
+      send(chatId, r.retCode === 0 ? '🔓 Crypto released!' : `❌ ${r.retMsg}`);
+    } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
   if (data.startsWith('ord_cancel_')) {
     if (!api) return noKeys(chatId);
-    try { const r=await api.cancelOrder(data.replace('ord_cancel_',''),'1'); send(chatId,r.retCode===0?'❌ Order cancelled.': `❌ ${r.retMsg}`); }
-    catch(e){send(chatId,`❌ ${e.message}`);}
+    try {
+      const r = await api.cancelOrder(data.replace('ord_cancel_', ''), '1');
+      send(chatId, r.retCode === 0 ? '❌ Order cancelled.' : `❌ ${r.retMsg}`);
+    } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
   if (data.startsWith('ord_chat_')) {
-    return openOrderChat(chatId, data.replace('ord_chat_',''));
+    return openOrderChat(chatId, data.replace('ord_chat_', ''));
   }
 });
 
@@ -588,8 +644,10 @@ bot.on('message', async (msg) => {
     await send(chatId,
       `✅ *Bybit API Keys Saved!*\n\n` +
       `Your account is now connected. Use /menu to start trading.`,
-      kb([[{ text:'🏪 Open Dashboard', callback_data:'menu_home' }],
-          [{ text:'🖥️ Open Mini App',  web_app:{ url: MINI_APP_URL } }]])
+      kb([
+        [{ text: '🏪 Open Dashboard', callback_data: 'menu_home' }],
+        [{ text: '🖥️ Open Mini App',  web_app: { url: MINI_APP_URL } }],
+      ])
     );
     if (ADMIN_ID && chatId !== ADMIN_ID) {
       const u = store.get(chatId);
@@ -610,14 +668,14 @@ bot.on('message', async (msg) => {
     return send(chatId, `📢 Sent: ✅ ${sent}, ❌ ${failed}`);
   }
 
-  // ── Chat mode (reply in order chat) ──
+  // ── Chat mode: forward message to order counterparty ──
   if (s.chatMode && s.activeOrder) {
     const api = getApi(chatId);
     if (!api) return noKeys(chatId);
     try {
       const r = await api.sendChatMessage(s.activeOrder, text);
-      send(chatId, r.retCode===0 ? '✅ Sent.' : `❌ ${r.retMsg}`);
-    } catch(e) { send(chatId, `❌ ${e.message}`); }
+      send(chatId, r.retCode === 0 ? '✅ Sent.' : `❌ ${r.retMsg}`);
+    } catch (e) { send(chatId, `❌ ${e.message}`); }
   }
 });
 
@@ -629,28 +687,40 @@ cron.schedule('*/2 * * * *', async () => {
     for (let i = alerts.length - 1; i >= 0; i--) {
       const a = alerts[i];
       try {
-        const r   = await api.getMarketAds({ tokenId:a.token, currencyId:a.currency, side:a.side==='SELL'?'1':'0', size:1 });
+        const r   = await api.getMarketAds({
+          tokenId:    a.token,
+          currencyId: a.currency,
+          side:       a.side === 'SELL' ? '1' : '0',
+          size:       1,
+        });
         const top = r.result?.items?.[0];
         if (!top) continue;
         const p   = parseFloat(top.price);
         const hit = a.above ? p >= a.targetPrice : p <= a.targetPrice;
         if (hit) {
-          send(chatId, `🚨 *Alert!*\n*${a.token}/${a.currency} ${a.side}* is now *${fmt(p)}*\n(Target: ${a.above?'⬆️ Above':'⬇️ Below'} ${fmt(a.targetPrice)})`);
+          send(chatId,
+            `🚨 *Alert!*\n*${a.token}/${a.currency} ${a.side}* is now *${fmt(p)}*\n` +
+            `(Target: ${a.above ? '⬆️ Above' : '⬇️ Below'} ${fmt(a.targetPrice)})`
+          );
           alerts.splice(i, 1);
+          // FIX #10: persist after removing a triggered alert
+          store.upsert(chatId, { priceAlerts: alerts });
         }
       } catch {}
     }
   }
 });
 
-// ── Background: new order watcher every 30s ───────────────────────────────────
-// FIX: node-cron uses 6-field format for second-level scheduling (already correct)
-cron.schedule('*/30 * * * * *', async () => {
+// ── Background: new order watcher ────────────────────────────────────────────
+// FIX #18: Use setInterval instead of a 6-field cron expression.
+// node-cron's second-field support can be ambiguous across versions.
+// setInterval(30_000) is simpler, guaranteed, and universally supported.
+setInterval(async () => {
   for (const chatId of orderWatchers) {
     const api = getApi(chatId);
     if (!api) continue;
     try {
-      const r = await api.getOrders({ status:'5', size:20 });
+      const r = await api.getOrders({ status: '5', size: 20 });
       for (const o of r.result?.items || []) {
         const snapKey = `${chatId}:${o.id}`;
         const prev    = orderSnap.get(snapKey);
@@ -658,7 +728,7 @@ cron.schedule('*/30 * * * * *', async () => {
           send(chatId,
             `🆕 *New Order!*\n${sideLabel(o.side)} ${o.tokenId}/${o.currencyId}\n` +
             `💲 \`${fmt(o.amount)} ${o.currencyId}\`\n🆔 \`${o.id}\``,
-            kb([[{text:'💬 Chat',callback_data:`ord_chat_${o.id}`}]])
+            kb([[{ text: '💬 Chat', callback_data: `ord_chat_${o.id}` }]])
           );
         } else if (String(prev.status) !== String(o.status)) {
           send(chatId, `🔄 Order \`${o.id}\`\n${statusLabel(prev.status)} → ${statusLabel(o.status)}`);
@@ -667,7 +737,7 @@ cron.schedule('*/30 * * * * *', async () => {
       }
     } catch {}
   }
-});
+}, 30_000);
 
 bot.on('polling_error', e => console.error('[polling]', e.code, e.message));
 console.log('🤖 Multi-user P2P Bot started');
