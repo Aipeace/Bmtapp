@@ -9,7 +9,6 @@
  *   /start  → welcome + register
  *   /setup  → guided Bybit API key entry
  *   /menu   → main dashboard (requires keys)
- *   ...all existing commands now scoped to req user's own Bybit account
  *
  * Admin-only:
  *   /admin           → admin panel
@@ -32,15 +31,15 @@ const pool        = require(path.join(__dirname, '../lib/bybit-pool'));
 
 if (!process.env.TELEGRAM_BOT_TOKEN) throw new Error('TELEGRAM_BOT_TOKEN not set');
 
-const bot         = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
+const bot          = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 const MINI_APP_URL = (process.env.MINI_APP_URL || 'https://your-app.onrender.com').replace(/\/$/, '');
-const ADMIN_ID    = Number(process.env.ADMIN_TELEGRAM_ID || 0);
+const ADMIN_ID     = Number(process.env.ADMIN_TELEGRAM_ID || 0);
 
 // ── In-memory per-user state ──────────────────────────────────────────────────
 const sessions      = new Map(); // chatId → { step, chatMode, activeOrder, ... }
 const priceAlerts   = new Map(); // chatId → [{ token, currency, side, targetPrice, above }]
 const orderWatchers = new Set(); // chatIds watching for new orders
-const orderSnap     = new Map(); // `${userId}:${orderId}` → last status
+const orderSnap     = new Map(); // `${userId}:${orderId}` → last known order object
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n, d = 2) =>
@@ -48,9 +47,12 @@ const fmt = (n, d = 2) =>
 
 const sideLabel   = s => String(s) === '0' ? '🟢 BUY' : '🔴 SELL';
 const statusLabel = s => ({
-  '5':'🔄 In Progress','10':'⏳ Waiting Payment',
-  '20':'💳 Paid – Awaiting Release','30':'✅ Completed',
-  '40':'❌ Cancelled','50':'⚠️ Appeal',
+  '5' :'🔄 In Progress',
+  '10':'⏳ Waiting Payment',
+  '20':'💳 Paid – Awaiting Release',
+  '30':'✅ Completed',
+  '40':'❌ Cancelled',
+  '50':'⚠️ Appeal',
 })[String(s)] || `Status ${s}`;
 
 function sess(chatId) {
@@ -65,9 +67,11 @@ async function send(chatId, text, extra = {}) {
 
 function kb(rows) { return { reply_markup: { inline_keyboard: rows } }; }
 
+// FIX: getApi() now checks user.active so suspended users can't use API commands
 function getApi(chatId) {
   const user = store.get(chatId);
   if (!user?.apiKey || !user?.apiSecret) return null;
+  if (!user.active) return null;
   return pool.getClient(user);
 }
 
@@ -77,18 +81,16 @@ function requireUser(chatId) {
 
 // ── Registration + Setup ──────────────────────────────────────────────────────
 
-bot.onText(/\/start/, async (msg) => {
+bot.onText(/^\/start$/, async (msg) => {
   const chatId = msg.chat.id;
   const tgUser = msg.from;
 
-  // Register user if first time
   let user = store.get(chatId);
   if (!user) {
     user = store.upsert(chatId, {
       firstName: tgUser.first_name || '',
       username:  tgUser.username  || '',
     });
-    // Notify admin of new registration
     if (ADMIN_ID && chatId !== ADMIN_ID) {
       send(ADMIN_ID,
         `👤 *New user registered*\n` +
@@ -112,7 +114,7 @@ bot.onText(/\/start/, async (msg) => {
   );
 });
 
-bot.onText(/\/setup/, async (msg) => {
+bot.onText(/^\/setup$/, async (msg) => {
   const chatId = msg.chat.id;
   const user   = requireUser(chatId);
   if (!user) return send(chatId, 'Please /start first.');
@@ -128,23 +130,24 @@ bot.onText(/\/setup/, async (msg) => {
     `2. Account → API Management → Create New Key\n` +
     `3. Enable: *Read* + *Trade* permissions\n` +
     `4. Add your server IP (or leave open for now)\n\n` +
-    `*Step 1 of 2 — Paste your API Key:*
-` +
+    `*Step 1 of 2 — Paste your API Key:*\n` +
     `_Tip: Reply with \`TESTNET\` first if you're connecting a testnet key._`
   );
 });
 
-bot.onText(/\/menu/, (msg) => {
-  const user = requireUser(msg.chat.id);
-  if (!user || !user.active) return send(msg.chat.id, 'Please /start first.');
-  if (!user.apiKey) return send(msg.chat.id, '⚠️ Run /setup to connect your Bybit account first.');
-  showMenu(msg.chat.id);
+bot.onText(/^\/menu$/, (msg) => {
+  const chatId = msg.chat.id;
+  const user = requireUser(chatId);
+  if (!user || !user.active) return send(chatId, 'Please /start first.');
+  if (!user.apiKey) return send(chatId, '⚠️ Run /setup to connect your Bybit account first.');
+  showMenu(chatId);
 });
 
-bot.onText(/\/mykeys/, (msg) => {
+bot.onText(/^\/mykeys$/, (msg) => {
   const chatId = msg.chat.id;
   const user   = store.get(chatId);
   if (!user) return send(chatId, 'Please /start first.');
+  if (!user.active) return send(chatId, '🚫 Account suspended.');
   if (!user.apiKey) return send(chatId, '⚠️ No keys saved. Use /setup.');
   send(chatId,
     `🔑 *Your API Keys*\n\n` +
@@ -155,16 +158,25 @@ bot.onText(/\/mykeys/, (msg) => {
   );
 });
 
-bot.onText(/\/ads/,       (msg) => { const a = getApi(msg.chat.id); a ? showAds(msg.chat.id, a)           : noKeys(msg.chat.id); });
-bot.onText(/\/orders/,    (msg) => { const a = getApi(msg.chat.id); a ? showOrders(msg.chat.id, a)        : noKeys(msg.chat.id); });
-bot.onText(/\/balance/,   (msg) => { const a = getApi(msg.chat.id); a ? showBalance(msg.chat.id, a)       : noKeys(msg.chat.id); });
-bot.onText(/\/analytics/, (msg) => { const a = getApi(msg.chat.id); a ? showAnalytics(msg.chat.id, a)    : noKeys(msg.chat.id); });
-bot.onText(/\/alerts/,    (msg) => listAlerts(msg.chat.id));
-bot.onText(/\/watch/,     (msg) => { orderWatchers.add(msg.chat.id); send(msg.chat.id, '👁️ Subscribed to order notifications.'); });
-bot.onText(/\/clearalerts/, (msg) => { priceAlerts.delete(msg.chat.id); send(msg.chat.id, '✅ Alerts cleared.'); });
+// FIX: All command regexes anchored with ^ to prevent partial matches
+// e.g. /\/ads/ would also fire for "/adsomething"
+bot.onText(/^\/ads$/,       (msg) => { const a = getApi(msg.chat.id); a ? showAds(msg.chat.id, a)        : noKeys(msg.chat.id); });
+bot.onText(/^\/orders$/,    (msg) => { const a = getApi(msg.chat.id); a ? showOrders(msg.chat.id, a)     : noKeys(msg.chat.id); });
+bot.onText(/^\/balance$/,   (msg) => { const a = getApi(msg.chat.id); a ? showBalance(msg.chat.id, a)    : noKeys(msg.chat.id); });
+bot.onText(/^\/analytics$/, (msg) => { const a = getApi(msg.chat.id); a ? showAnalytics(msg.chat.id, a) : noKeys(msg.chat.id); });
 
-bot.onText(/\/alert (.+)/, (msg, match) => {
+// FIX: /alerts anchored so it doesn't also fire for "/alert TOKEN..." messages
+bot.onText(/^\/alerts$/,      (msg) => listAlerts(msg.chat.id));
+bot.onText(/^\/clearalerts$/, (msg) => { priceAlerts.delete(msg.chat.id); send(msg.chat.id, '✅ Alerts cleared.'); });
+
+// FIX: Added /unwatch command so users can unsubscribe from order notifications
+bot.onText(/^\/watch$/,   (msg) => { orderWatchers.add(msg.chat.id);    send(msg.chat.id, '👁️ Subscribed to order notifications. Use /unwatch to stop.'); });
+bot.onText(/^\/unwatch$/, (msg) => { orderWatchers.delete(msg.chat.id); send(msg.chat.id, '🔕 Unsubscribed from order notifications.'); });
+
+bot.onText(/^\/alert (.+)/, (msg, match) => {
   const chatId = msg.chat.id;
+  const user   = store.get(chatId);
+  if (!user || !user.active) return;
   const parts  = match[1].trim().split(/\s+/);
   if (parts.length < 5) {
     return send(chatId, '⚠️ Usage: `/alert TOKEN CURRENCY SIDE PRICE ABOVE|BELOW`\ne.g. `/alert USDT NGN SELL 1600 ABOVE`');
@@ -181,7 +193,7 @@ bot.onText(/\/alert (.+)/, (msg, match) => {
   send(chatId, `🔔 Alert set for *${token}/${currency} ${side}* ${dir.toUpperCase() === 'ABOVE' ? '⬆️ above' : '⬇️ below'} \`${fmt(price)}\``);
 });
 
-bot.onText(/\/help/, (msg) => {
+bot.onText(/^\/help$/, (msg) => {
   const isAdmin = store.isAdmin(msg.chat.id);
   const lines = [
     '*📖 Commands*','',
@@ -197,6 +209,7 @@ bot.onText(/\/help/, (msg) => {
     '/alerts — View active alerts',
     '/clearalerts — Remove all alerts',
     '/watch — Subscribe to order push notifications',
+    '/unwatch — Unsubscribe from order notifications',
   ];
   if (isAdmin) {
     lines.push('', '*👑 Admin Commands*','',
@@ -212,6 +225,10 @@ bot.onText(/\/help/, (msg) => {
 });
 
 function noKeys(chatId) {
+  const user = store.get(chatId);
+  if (user && !user.active) {
+    return send(chatId, '🚫 Your account has been suspended. Contact the admin.');
+  }
   send(chatId, '⚠️ You need to connect your Bybit account first.\nUse /setup to add your API keys.');
 }
 
@@ -266,10 +283,10 @@ async function showOrders(chatId, api, statusFilter = '') {
     for (const o of orders.slice(0, 8)) {
       const s    = String(o.status);
       const btns = [];
-      if (s === '10')             btns.push({ text:'✅ Mark Paid', callback_data:`ord_pay_${o.id}` });
-      if (s === '20')             btns.push({ text:'🔓 Release',   callback_data:`ord_release_${o.id}` });
-      if (['5','10'].includes(s)) btns.push({ text:'❌ Cancel',    callback_data:`ord_cancel_${o.id}` });
-      if (['10','20'].includes(s)) btns.push({ text:'💬 Chat',     callback_data:`ord_chat_${o.id}` });
+      if (s === '10')              btns.push({ text:'✅ Mark Paid', callback_data:`ord_pay_${o.id}` });
+      if (s === '20')              btns.push({ text:'🔓 Release',   callback_data:`ord_release_${o.id}` });
+      if (['5','10'].includes(s))  btns.push({ text:'❌ Cancel',    callback_data:`ord_cancel_${o.id}` });
+      if (['10','20'].includes(s)) btns.push({ text:'💬 Chat',      callback_data:`ord_chat_${o.id}` });
       await bot.sendMessage(chatId,
         `${statusLabel(o.status)} — *${sideLabel(o.side)}*\n` +
         `💱 ${o.tokenId}/${o.currencyId}\n` +
@@ -305,9 +322,12 @@ async function showAnalytics(chatId, api) {
     const vol  = done.reduce((s,o) => s + parseFloat(o.amount||0), 0);
     const qty  = done.reduce((s,o) => s + parseFloat(o.quantity||0), 0);
     const rate = all.length ? ((done.length/all.length)*100).toFixed(1) : '0.0';
+    // FIX: cancelled filter was using strict === '40' on a value that may be a number.
+    // Use String() coercion consistently for all status comparisons.
+    const cancelled = all.filter(o => String(o.status) === '40').length;
     send(chatId,
       `📊 *Analytics — Last 30 Days*\n\n` +
-      `✅ Completed: *${done.length}*  ❌ Cancelled: *${all.filter(o=>o.status==='40').length}*\n` +
+      `✅ Completed: *${done.length}*  ❌ Cancelled: *${cancelled}*\n` +
       `📈 Rate: *${rate}%*\n\n` +
       `💱 Volume: \`${fmt(vol)}\` (fiat)\n` +
       `📦 Qty: \`${fmt(qty,4)}\` USDT\n\n` +
@@ -322,7 +342,7 @@ async function openOrderChat(chatId, orderId) {
   const api = getApi(chatId);
   if (!api) return noKeys(chatId);
   const s = sess(chatId);
-  s.chatMode   = true;
+  s.chatMode    = true;
   s.activeOrder = orderId;
   try {
     const res  = await api.getChatMessages(orderId, 15);
@@ -346,7 +366,7 @@ function listAlerts(chatId) {
 }
 
 // ── Admin Commands ────────────────────────────────────────────────────────────
-bot.onText(/\/admin/, (msg) => {
+bot.onText(/^\/admin$/, (msg) => {
   if (!store.isAdmin(msg.chat.id)) return;
   const users   = store.getAll();
   const active  = users.filter(u => u.active).length;
@@ -364,7 +384,7 @@ bot.onText(/\/admin/, (msg) => {
   );
 });
 
-bot.onText(/\/users/, (msg) => {
+bot.onText(/^\/users$/, (msg) => {
   if (!store.isAdmin(msg.chat.id)) return;
   const users = store.getAll();
   if (!users.length) return send(msg.chat.id, '📭 No users yet.');
@@ -375,7 +395,7 @@ bot.onText(/\/users/, (msg) => {
   send(msg.chat.id, `👥 *Registered Users*\n\n${lines}`);
 });
 
-bot.onText(/\/suspend (\d+)/, (msg, match) => {
+bot.onText(/^\/suspend (\d+)$/, (msg, match) => {
   if (!store.isAdmin(msg.chat.id)) return;
   const targetId = match[1];
   if (store.isAdmin(targetId)) return send(msg.chat.id, '❌ Cannot suspend admin.');
@@ -386,7 +406,7 @@ bot.onText(/\/suspend (\d+)/, (msg, match) => {
   send(Number(targetId), '🚫 Your account has been suspended by the admin.');
 });
 
-bot.onText(/\/reinstate (\d+)/, (msg, match) => {
+bot.onText(/^\/reinstate (\d+)$/, (msg, match) => {
   if (!store.isAdmin(msg.chat.id)) return;
   const targetId = match[1];
   const u = store.get(targetId);
@@ -396,7 +416,7 @@ bot.onText(/\/reinstate (\d+)/, (msg, match) => {
   send(Number(targetId), '✅ Your account has been reinstated. Use /menu to continue.');
 });
 
-bot.onText(/\/deluser (\d+)/, (msg, match) => {
+bot.onText(/^\/deluser (\d+)$/, (msg, match) => {
   if (!store.isAdmin(msg.chat.id)) return;
   const targetId = match[1];
   if (store.isAdmin(targetId)) return send(msg.chat.id, '❌ Cannot delete admin.');
@@ -407,7 +427,7 @@ bot.onText(/\/deluser (\d+)/, (msg, match) => {
   send(msg.chat.id, `🗑 User \`${targetId}\` (${u.firstName}) deleted.`);
 });
 
-bot.onText(/\/broadcast (.+)/, async (msg, match) => {
+bot.onText(/^\/broadcast (.+)/, async (msg, match) => {
   if (!store.isAdmin(msg.chat.id)) return;
   const text  = match[1];
   const users = store.getAll().filter(u => u.active);
@@ -435,11 +455,18 @@ bot.on('callback_query', async (q) => {
   }
 
   // Menu
-  if (data === 'menu_home')    return api ? showMenu(chatId)             : noKeys(chatId);
-  if (data === 'ads_list')     return api ? showAds(chatId, api)          : noKeys(chatId);
-  if (data === 'orders_list')  return api ? showOrders(chatId, api)       : noKeys(chatId);
-  if (data === 'balance')      return api ? showBalance(chatId, api)      : noKeys(chatId);
-  if (data === 'analytics')    return api ? showAnalytics(chatId, api)    : noKeys(chatId);
+  if (data === 'menu_home')   return api ? showMenu(chatId)          : noKeys(chatId);
+  if (data === 'ads_list')    return api ? showAds(chatId, api)       : noKeys(chatId);
+  if (data === 'balance')     return api ? showBalance(chatId, api)   : noKeys(chatId);
+  if (data === 'analytics')   return api ? showAnalytics(chatId, api) : noKeys(chatId);
+
+  // FIX: orders_list now clears chatMode so users don't accidentally stay in chat mode
+  if (data === 'orders_list') {
+    const s = sess(chatId);
+    s.chatMode    = false;
+    s.activeOrder = null;
+    return api ? showOrders(chatId, api) : noKeys(chatId);
+  }
 
   if (data === 'chat_menu') {
     return send(chatId,'💬 Select an order via /orders then tap Chat, or open the Mini App.',
@@ -481,11 +508,11 @@ bot.on('callback_query', async (q) => {
   // Ad toggle — parse right-to-left to handle IDs with underscores
   if (data.startsWith('ad_toggle_')) {
     if (!api) return noKeys(chatId);
-    const raw   = data.slice('ad_toggle_'.length);
-    const last  = raw.lastIndexOf('_');
-    const adId  = raw.slice(0, last);
-    const cur   = raw.slice(last + 1);
-    const next  = cur === '1' ? '2' : '1';
+    const raw  = data.slice('ad_toggle_'.length);
+    const last = raw.lastIndexOf('_');
+    const adId = raw.slice(0, last);
+    const cur  = raw.slice(last + 1);
+    const next = cur === '1' ? '2' : '1';
     try {
       const r = await api.toggleAdStatus(adId, next);
       send(chatId, r.retCode===0 ? `✅ Ad ${next==='1'?'activated 🟢':'paused ⚫'}.` : `❌ ${r.retMsg}`);
@@ -564,7 +591,6 @@ bot.on('message', async (msg) => {
       kb([[{ text:'🏪 Open Dashboard', callback_data:'menu_home' }],
           [{ text:'🖥️ Open Mini App',  web_app:{ url: MINI_APP_URL } }]])
     );
-    // Notify admin
     if (ADMIN_ID && chatId !== ADMIN_ID) {
       const u = store.get(chatId);
       send(ADMIN_ID, `🔑 *User connected Bybit keys*\n${u?.firstName||'?'} \`${chatId}\``);
@@ -618,6 +644,7 @@ cron.schedule('*/2 * * * *', async () => {
 });
 
 // ── Background: new order watcher every 30s ───────────────────────────────────
+// FIX: node-cron uses 6-field format for second-level scheduling (already correct)
 cron.schedule('*/30 * * * * *', async () => {
   for (const chatId of orderWatchers) {
     const api = getApi(chatId);
@@ -633,7 +660,7 @@ cron.schedule('*/30 * * * * *', async () => {
             `💲 \`${fmt(o.amount)} ${o.currencyId}\`\n🆔 \`${o.id}\``,
             kb([[{text:'💬 Chat',callback_data:`ord_chat_${o.id}`}]])
           );
-        } else if (prev.status !== o.status) {
+        } else if (String(prev.status) !== String(o.status)) {
           send(chatId, `🔄 Order \`${o.id}\`\n${statusLabel(prev.status)} → ${statusLabel(o.status)}`);
         }
         orderSnap.set(snapKey, o);
