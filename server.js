@@ -33,11 +33,19 @@ const store   = require('./lib/store');
 const pool    = require('./lib/bybit-pool');
 const { requireAuth, requireKeys, requireAdmin } = require('./lib/auth');
 
+// ── Startup env validation ────────────────────────────────────────────────────
 if (!process.env.TELEGRAM_BOT_TOKEN) {
   console.error('❌  TELEGRAM_BOT_TOKEN is required'); process.exit(1);
 }
 if (!process.env.ADMIN_TELEGRAM_ID) {
   console.warn('⚠️   ADMIN_TELEGRAM_ID not set — admin routes will be inaccessible');
+}
+// FIX: Warn operators who forgot to set APP_SECRET so secrets aren't encrypted
+// with the insecure default key
+if (!process.env.APP_SECRET || process.env.APP_SECRET === 'change_me_32_chars_exactly!!!!!!') {
+  console.warn('⚠️   APP_SECRET is not set or is using the default value.');
+  console.warn('     Bybit API secrets will be encrypted with the insecure default key.');
+  console.warn('     Set APP_SECRET to a random 32-character string in your environment.');
 }
 
 const app  = express();
@@ -69,13 +77,13 @@ app.get('/api/health', (req, res) => {
 app.get('/api/me', requireAuth, (req, res) => {
   const u = req.user;
   res.json({
-    telegramId:  u.telegramId,
-    firstName:   u.firstName,
-    username:    u.username,
-    isAdmin:     u.isAdmin,
-    active:      u.active,
-    hasKeys:     !!(u.apiKey && u.apiSecret),
-    testnet:     u.testnet,
+    telegramId:   u.telegramId,
+    firstName:    u.firstName,
+    username:     u.username,
+    isAdmin:      u.isAdmin,
+    active:       u.active,
+    hasKeys:      !!(u.apiKey && u.apiSecret),
+    testnet:      u.testnet,
     registeredAt: u.registeredAt,
   });
 });
@@ -86,7 +94,7 @@ app.post('/api/keys', requireAuth, (req, res) => {
   if (!apiKey || !apiSecret) {
     return res.status(400).json({ error: 'apiKey and apiSecret are required' });
   }
-  pool.evict(req.telegramId); // clear cached client so new keys take effect
+  pool.evict(req.telegramId);
   const user = store.upsert(req.telegramId, {
     apiKey:    apiKey.trim(),
     apiSecret: apiSecret.trim(),
@@ -139,8 +147,8 @@ app.post('/api/orders/:id/messages', requireKeys, wrap(async (req, res) => res.j
 
 /* GET /api/admin/stats */
 app.get('/api/admin/stats', requireAdmin, (req, res) => {
-  const users   = store.getAll();
-  const active  = users.filter(u => u.active);
+  const users    = store.getAll();
+  const active   = users.filter(u => u.active);
   const withKeys = users.filter(u => u.apiKey && u.apiSecret);
   res.json({
     totalUsers:  users.length,
@@ -153,15 +161,15 @@ app.get('/api/admin/stats', requireAdmin, (req, res) => {
 /* GET /api/admin/users */
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = store.getAll().map(u => ({
-    telegramId:  u.telegramId,
-    firstName:   u.firstName,
-    username:    u.username,
-    active:      u.active,
-    hasKeys:     !!(u.apiKey && u.apiSecret),
-    testnet:     u.testnet,
+    telegramId:   u.telegramId,
+    firstName:    u.firstName,
+    username:     u.username,
+    active:       u.active,
+    hasKeys:      !!(u.apiKey && u.apiSecret),
+    testnet:      u.testnet,
     registeredAt: u.registeredAt,
-    lastSeen:    u.lastSeen,
-    isAdmin:     u.isAdmin,
+    lastSeen:     u.lastSeen,
+    isAdmin:      u.isAdmin,
   }));
   res.json({ users });
 });
@@ -175,7 +183,7 @@ app.get('/api/admin/users/:id', requireAdmin, (req, res) => {
   res.json({ ...safe, hasKeys: !!(u.apiKey && u.apiSecret) });
 });
 
-/* PATCH /api/admin/users/:id  — suspend or reinstate */
+/* PATCH /api/admin/users/:id — suspend or reinstate */
 app.patch('/api/admin/users/:id', requireAdmin, (req, res) => {
   const u = store.get(req.params.id);
   if (!u) return res.status(404).json({ error: 'User not found' });
