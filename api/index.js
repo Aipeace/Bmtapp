@@ -1,6 +1,13 @@
 /**
  * api/index.js
- * Vercel Serverless Function — handles every /api/* request
+ * ⚠️  VERCEL DEPLOYMENT ONLY — single-user mode.
+ *
+ * This file is a Vercel Serverless Function that reads Bybit API credentials
+ * from environment variables (BYBIT_API_KEY / BYBIT_API_SECRET).
+ *
+ * For the Render multi-user deployment (where every user supplies their own
+ * keys), use server.js instead. Do NOT call these routes from the
+ * Render-hosted frontend — they use env-level keys, not per-user keys.
  *
  * Route map:
  *   GET  /api/health
@@ -33,13 +40,13 @@
 
 'use strict';
 
-// Vercel injects env vars; dotenv is a no-op in prod but useful locally
 try { require('dotenv').config(); } catch (_) {}
 
-const path  = require('path');
+const path        = require('path');
 const BybitP2PApi = require(path.join(__dirname, '../lib/bybit-api'));
 
-// ── Singleton API client (reused across warm invocations) ─────────────────────
+// Singleton client — reused across warm Vercel invocations.
+// Keys come from environment variables (single-user Vercel mode only).
 const bybit = new BybitP2PApi(
   process.env.BYBIT_API_KEY    || '',
   process.env.BYBIT_API_SECRET || '',
@@ -58,31 +65,23 @@ function ok(res, data)        { return res.status(200).json(data); }
 function notFound(res, route) { return res.status(404).json({ error: `Unknown route: ${route}` }); }
 function serverErr(res, e)    { return res.status(500).json({ error: e?.message || String(e) }); }
 
-/** Read the raw request body as parsed JSON */
 function readBody(req) {
   return new Promise((resolve) => {
     let raw = '';
     req.on('data', c => raw += c);
-    req.on('end', () => {
-      try { resolve(JSON.parse(raw || '{}')); }
-      catch { resolve({}); }
-    });
+    req.on('end',  () => { try { resolve(JSON.parse(raw || '{}')); } catch { resolve({}); } });
     req.on('error', () => resolve({}));
   });
 }
 
-/**
- * Extract the path segment after /api, normalised.
- * Vercel passes req.url as the full path, e.g. /api/orders/ORD123/messages
- */
 function getApiPath(req) {
-  const url   = new URL(req.url, `https://placeholder`);
+  const url   = new URL(req.url, 'https://placeholder');
   const clean = url.pathname.replace(/^\/api\/?/, '').replace(/\/$/, '');
-  return '/' + clean;   // always starts with /
+  return '/' + clean;
 }
 
 function getQuery(req) {
-  const url = new URL(req.url, `https://placeholder`);
+  const url = new URL(req.url, 'https://placeholder');
   return Object.fromEntries(url.searchParams.entries());
 }
 
@@ -90,61 +89,38 @@ function getQuery(req) {
 
 module.exports = async function handler(req, res) {
   setCors(res);
-
-  // Pre-flight
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   const method = req.method.toUpperCase();
-  const route  = getApiPath(req);    // e.g. /orders/ORD123/messages
+  const route  = getApiPath(req);
   const query  = getQuery(req);
   const body   = ['POST','PUT','PATCH'].includes(method) ? await readBody(req) : {};
 
-  // Validate API keys are configured
   if (!process.env.BYBIT_API_KEY || !process.env.BYBIT_API_SECRET) {
-    return res.status(503).json({ error: 'Bybit API credentials not configured. Set BYBIT_API_KEY and BYBIT_API_SECRET environment variables.' });
+    return res.status(503).json({
+      error: 'Bybit API credentials not configured. Set BYBIT_API_KEY and BYBIT_API_SECRET.',
+    });
   }
 
   try {
-
-    // ── Health ────────────────────────────────────────────────────────────────
+    // Health
     if (route === '/' || route === '/health') {
       return ok(res, { ok: true, ts: Date.now(), testnet: process.env.BYBIT_TESTNET === 'true' });
     }
 
-    // ── Account ───────────────────────────────────────────────────────────────
-    if (method === 'GET' && route === '/balance') {
-      return ok(res, await bybit.getAccountBalance());
-    }
-    if (method === 'GET' && route === '/profile') {
-      return ok(res, await bybit.getP2PProfile());
-    }
-    if (method === 'GET' && route === '/payment-methods') {
-      return ok(res, await bybit.getPaymentMethods());
-    }
-    if (method === 'GET' && route === '/tokens') {
-      return ok(res, await bybit.getSupportedTokens());
-    }
-    if (method === 'GET' && route === '/currencies') {
-      return ok(res, await bybit.getSupportedCurrencies());
-    }
+    // Account
+    if (method === 'GET' && route === '/balance')         return ok(res, await bybit.getAccountBalance());
+    if (method === 'GET' && route === '/profile')         return ok(res, await bybit.getP2PProfile());
+    if (method === 'GET' && route === '/payment-methods') return ok(res, await bybit.getPaymentMethods());
+    if (method === 'GET' && route === '/tokens')          return ok(res, await bybit.getSupportedTokens());
+    if (method === 'GET' && route === '/currencies')      return ok(res, await bybit.getSupportedCurrencies());
 
-    // ── Market ────────────────────────────────────────────────────────────────
-    if (method === 'GET' && route === '/market/ads') {
-      return ok(res, await bybit.getMarketAds(query));
-    }
+    // Market
+    if (method === 'GET' && route === '/market/ads') return ok(res, await bybit.getMarketAds(query));
 
-    // ── Ads ───────────────────────────────────────────────────────────────────
-    if (method === 'GET' && route === '/ads') {
-      return ok(res, await bybit.getMyAds({
-        page:    query.page    || 1,
-        size:    query.size    || 20,
-        tokenId: query.tokenId,
-        side:    query.side,
-      }));
-    }
-    if (method === 'POST' && route === '/ads') {
-      return ok(res, await bybit.createAd(body));
-    }
+    // Ads list / create
+    if (method === 'GET'  && route === '/ads') return ok(res, await bybit.getMyAds({ page: query.page || 1, size: query.size || 20, tokenId: query.tokenId, side: query.side }));
+    if (method === 'POST' && route === '/ads') return ok(res, await bybit.createAd(body));
 
     // /ads/:id
     const adsIdMatch = route.match(/^\/ads\/([^/]+)$/);
@@ -157,54 +133,28 @@ module.exports = async function handler(req, res) {
 
     // /ads/:id/status
     const adsStatusMatch = route.match(/^\/ads\/([^/]+)\/status$/);
-    if (adsStatusMatch && method === 'PATCH') {
-      return ok(res, await bybit.toggleAdStatus(adsStatusMatch[1], body.status));
-    }
+    if (adsStatusMatch && method === 'PATCH') return ok(res, await bybit.toggleAdStatus(adsStatusMatch[1], body.status));
 
-    // ── Orders ────────────────────────────────────────────────────────────────
-    if (method === 'GET' && route === '/orders/history') {
-      return ok(res, await bybit.getOrderHistory(Number(query.days) || 30));
-    }
-    if (method === 'GET' && route === '/orders') {
-      return ok(res, await bybit.getOrders({
-        page:   query.page   || 1,
-        size:   query.size   || 20,
-        status: query.status || '',
-      }));
-    }
+    // Orders — /history before /:id
+    if (method === 'GET' && route === '/orders/history') return ok(res, await bybit.getOrderHistory(Number(query.days) || 30));
+    if (method === 'GET' && route === '/orders')         return ok(res, await bybit.getOrders({ page: query.page || 1, size: query.size || 20, status: query.status || '' }));
 
-    // /orders/:id  (exact, no sub-path)
+    // /orders/:id  (exact)
     const orderIdMatch = route.match(/^\/orders\/([^/]+)$/);
-    if (orderIdMatch && method === 'GET') {
-      return ok(res, await bybit.getOrderDetail(orderIdMatch[1]));
-    }
+    if (orderIdMatch && method === 'GET') return ok(res, await bybit.getOrderDetail(orderIdMatch[1]));
 
     // /orders/:id/:action
     const orderActionMatch = route.match(/^\/orders\/([^/]+)\/([^/]+)$/);
     if (orderActionMatch) {
       const [, orderId, action] = orderActionMatch;
-
-      if (method === 'GET'  && action === 'messages') {
-        return ok(res, await bybit.getChatMessages(orderId, Number(query.size) || 50));
-      }
-      if (method === 'POST' && action === 'messages') {
-        return ok(res, await bybit.sendChatMessage(orderId, body.message, body.msgType || 'str'));
-      }
-      if (method === 'POST' && action === 'pay') {
-        return ok(res, await bybit.confirmPayment(orderId));
-      }
-      if (method === 'POST' && action === 'release') {
-        return ok(res, await bybit.releaseAsset(orderId));
-      }
-      if (method === 'POST' && action === 'cancel') {
-        return ok(res, await bybit.cancelOrder(orderId, body.cancelType || '1'));
-      }
-      if (method === 'POST' && action === 'appeal') {
-        return ok(res, await bybit.appealOrder(orderId, body.appealType, body.appealNote));
-      }
+      if (method === 'GET'  && action === 'messages') return ok(res, await bybit.getChatMessages(orderId, Number(query.size) || 50));
+      if (method === 'POST' && action === 'messages') return ok(res, await bybit.sendChatMessage(orderId, body.message, body.msgType || 'str'));
+      if (method === 'POST' && action === 'pay')      return ok(res, await bybit.confirmPayment(orderId));
+      if (method === 'POST' && action === 'release')  return ok(res, await bybit.releaseAsset(orderId));
+      if (method === 'POST' && action === 'cancel')   return ok(res, await bybit.cancelOrder(orderId, body.cancelType || '1'));
+      if (method === 'POST' && action === 'appeal')   return ok(res, await bybit.appealOrder(orderId, body.appealType, body.appealNote));
     }
 
-    // ── Not found ─────────────────────────────────────────────────────────────
     return notFound(res, `${method} ${route}`);
 
   } catch (e) {
