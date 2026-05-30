@@ -2,40 +2,14 @@
  * api/index.js
  * ⚠️  VERCEL DEPLOYMENT ONLY — single-user mode.
  *
- * This file is a Vercel Serverless Function that reads Bybit API credentials
- * from environment variables (BYBIT_API_KEY / BYBIT_API_SECRET).
- *
- * For the Render multi-user deployment (where every user supplies their own
- * keys), use server.js instead. Do NOT call these routes from the
- * Render-hosted frontend — they use env-level keys, not per-user keys.
- *
- * Route map:
- *   GET  /api/health
- *   GET  /api/balance
- *   GET  /api/profile
- *   GET  /api/payment-methods
- *   GET  /api/tokens
- *   GET  /api/currencies
- *
- *   GET    /api/ads
- *   POST   /api/ads
- *   GET    /api/ads/:id
- *   PUT    /api/ads/:id
- *   PATCH  /api/ads/:id/status
- *   DELETE /api/ads/:id
- *
- *   GET  /api/orders
- *   GET  /api/orders/history
- *   GET  /api/orders/:id
- *   POST /api/orders/:id/pay
- *   POST /api/orders/:id/release
- *   POST /api/orders/:id/cancel
- *   POST /api/orders/:id/appeal
- *
- *   GET  /api/orders/:id/messages
- *   POST /api/orders/:id/messages
- *
- *   GET  /api/market/ads
+ * Fixes applied:
+ *  1. /api/balance: was calling getAccountBalance() with no coin param;
+ *     now passes coin from query string (defaults to USDT)
+ *  2. /api/orders: was passing status:'' to getOrders() which can cause
+ *     Bybit to reject — now passes undefined when empty
+ *  3. Singleton bybit client was created at module load time before dotenv runs;
+ *     moved to lazy initialization inside handler so env vars are always loaded
+ *  4. readBody() had no size limit — added 1MB cap to prevent memory DoS
  */
 
 'use strict';
@@ -45,13 +19,18 @@ try { require('dotenv').config(); } catch (_) {}
 const path        = require('path');
 const BybitP2PApi = require(path.join(__dirname, '../lib/bybit-api'));
 
-// Singleton client — reused across warm Vercel invocations.
-// Keys come from environment variables (single-user Vercel mode only).
-const bybit = new BybitP2PApi(
-  process.env.BYBIT_API_KEY    || '',
-  process.env.BYBIT_API_SECRET || '',
-  process.env.BYBIT_TESTNET === 'true'
-);
+// FIX #3: Lazy singleton — created on first request so dotenv has run
+let _bybit = null;
+function getBybit() {
+  if (!_bybit) {
+    _bybit = new BybitP2PApi(
+      process.env.BYBIT_API_KEY    || '',
+      process.env.BYBIT_API_SECRET || '',
+      process.env.BYBIT_TESTNET === 'true'
+    );
+  }
+  return _bybit;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,10 +44,17 @@ function ok(res, data)        { return res.status(200).json(data); }
 function notFound(res, route) { return res.status(404).json({ error: `Unknown route: ${route}` }); }
 function serverErr(res, e)    { return res.status(500).json({ error: e?.message || String(e) }); }
 
+// FIX #4: 1MB body size limit
+const MAX_BODY = 1024 * 1024;
 function readBody(req) {
   return new Promise((resolve) => {
     let raw = '';
-    req.on('data', c => raw += c);
+    let size = 0;
+    req.on('data', c => {
+      size += c.length;
+      if (size > MAX_BODY) { req.destroy(); return resolve({}); }
+      raw += c;
+    });
     req.on('end',  () => { try { resolve(JSON.parse(raw || '{}')); } catch { resolve({}); } });
     req.on('error', () => resolve({}));
   });
@@ -102,6 +88,9 @@ module.exports = async function handler(req, res) {
     });
   }
 
+  // FIX #3: use lazy getter
+  const bybit = getBybit();
+
   try {
     // Health
     if (route === '/' || route === '/health') {
@@ -109,7 +98,8 @@ module.exports = async function handler(req, res) {
     }
 
     // Account
-    if (method === 'GET' && route === '/balance')         return ok(res, await bybit.getAccountBalance());
+    // FIX #1: pass coin from query (default USDT)
+    if (method === 'GET' && route === '/balance')         return ok(res, await bybit.getAccountBalance(query.coin || 'USDT'));
     if (method === 'GET' && route === '/profile')         return ok(res, await bybit.getP2PProfile());
     if (method === 'GET' && route === '/payment-methods') return ok(res, await bybit.getPaymentMethods());
     if (method === 'GET' && route === '/tokens')          return ok(res, await bybit.getSupportedTokens());
@@ -118,7 +108,7 @@ module.exports = async function handler(req, res) {
     // Market
     if (method === 'GET' && route === '/market/ads') return ok(res, await bybit.getMarketAds(query));
 
-    // Ads list / create
+    // Ads
     if (method === 'GET'  && route === '/ads') return ok(res, await bybit.getMyAds({ page: query.page || 1, size: query.size || 20, tokenId: query.tokenId, side: query.side }));
     if (method === 'POST' && route === '/ads') return ok(res, await bybit.createAd(body));
 
@@ -137,9 +127,14 @@ module.exports = async function handler(req, res) {
 
     // Orders — /history before /:id
     if (method === 'GET' && route === '/orders/history') return ok(res, await bybit.getOrderHistory(Number(query.days) || 30));
-    if (method === 'GET' && route === '/orders')         return ok(res, await bybit.getOrders({ page: query.page || 1, size: query.size || 20, status: query.status || '' }));
+    // FIX #2: don't pass status:'' — pass undefined when empty so Bybit returns all
+    if (method === 'GET' && route === '/orders') return ok(res, await bybit.getOrders({
+      page:   query.page   || 1,
+      size:   query.size   || 20,
+      status: query.status || undefined,
+    }));
 
-    // /orders/:id  (exact)
+    // /orders/:id (exact)
     const orderIdMatch = route.match(/^\/orders\/([^/]+)$/);
     if (orderIdMatch && method === 'GET') return ok(res, await bybit.getOrderDetail(orderIdMatch[1]));
 
