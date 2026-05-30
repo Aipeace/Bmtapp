@@ -342,7 +342,9 @@ async function showBalance(chatId, api) {
   await send(chatId, '⏳ Fetching balance…');
   try {
     const res   = await api.getAccountBalance();
-    if (res.ret_code !== 0) return send(chatId, `❌ Bybit: ${res.ret_msg}`);
+    // getAccountBalance uses V5 trading API → returns retCode/retMsg (camelCase)
+    // All P2P endpoints return ret_code/ret_msg (snake_case)
+    if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
     const coins = (res.result?.list?.[0]?.coin || []).filter(c => parseFloat(c.walletBalance) > 0);
     const lines = coins.map(c =>
       `• *${c.coin}*: \`${fmt(c.walletBalance,6)}\` (avail: \`${fmt(c.transferBalance,6)}\`)`
@@ -633,6 +635,12 @@ bot.on('message', async (msg) => {
 
   if (s.step === 'awaiting_api_secret') {
     const apiKey    = s.pendingKey;
+    // Guard: if bot restarted mid-setup, pendingKey will be undefined.
+    // Send the user back to step 1 rather than saving a broken record.
+    if (!apiKey) {
+      s.step = null;
+      return send(chatId, '⚠️ Setup timed out (bot restarted). Please run /setup again.');
+    }
     const apiSecret = text;
     const testnet   = s.pendingTestnet === true;
     delete s.pendingKey;
