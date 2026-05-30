@@ -295,9 +295,9 @@
   <div class="page" id="pg-orders">
     <div class="pill-row" style="margin-top:4px">
       <button class="pill p-any" id="pf-all"    onclick="setOrderFilter('')">All</button>
-      <button class="pill"       id="pf-active" onclick="setOrderFilter('5')">Active</button>
+      <button class="pill"       id="pf-active" onclick="setOrderFilter('10')">Active</button>
       <button class="pill"       id="pf-paid"   onclick="setOrderFilter('20')">Paid</button>
-      <button class="pill"       id="pf-done"   onclick="setOrderFilter('30')">Done</button>
+      <button class="pill"       id="pf-done"   onclick="setOrderFilter('50')">Done</button>
     </div>
     <div class="err" id="orders-err"></div>
     <div id="orders-list"><div class="spinner"></div></div>
@@ -589,7 +589,7 @@ async function saveKeys() {
 async function loadHome() {
   clearErr('home-err');
   const [adsR,ordersR,histR,mktR] = await Promise.allSettled([
-    apiGet('/ads?size=50'), apiGet('/orders?size=50'),
+    apiGet('/ads?size=50'), apiGet('/orders?size=30'),
     apiGet('/orders/history?days=30'),
     apiGet('/market/ads?tokenId=USDT&currencyId=NGN&side=0&size=3'),
   ]);
@@ -662,12 +662,12 @@ async function submitAd(){
 }
 
 // ── ORDERS ────────────────────────────────────────────────────────────────────
-function setOrderFilter(status){ orderFilter=status; document.querySelectorAll('#pg-orders .pill').forEach(b=>b.className='pill'); const map={'':'pf-all','10':'pf-active','20':'pf-paid','50':'pf-done'}; // Bybit P2P status codes const el=document.getElementById(map[status]); if(el)el.classList.add(status===''?'p-any':status==='30'?'p-buy':'p-sell'); loadOrders(status); }
+function setOrderFilter(status){ orderFilter=status; document.querySelectorAll('#pg-orders .pill').forEach(b=>b.className='pill'); const map={'':'pf-all','10':'pf-active','20':'pf-paid','50':'pf-done'}; // Bybit P2P status codes const el=document.getElementById(map[status]); if(el)el.classList.add(status===''?'p-any':status==='50'?'p-buy':'p-sell'); loadOrders(status); }
 async function loadOrders(status=''){ clearErr('orders-err'); setHTML('orders-list',spinnerHTML()); try{ const res=await apiGet('/orders?status='+encodeURIComponent(status)+'&size=20'); const orders=res.result?.items||[]; setHTML('orders-list',orders.length?orders.map(o=>orderCard(o,false)).join(''):emptyHTML('📭','No orders found.')); }catch(e){showErr('orders-err',e.message);setHTML('orders-list','');} }
 
 function orderCard(o,compact){
   const s=String(o.status); let btns='';
-  if(!compact){ if(s==='10')btns+=`<button class="btn btn-green btn-sm" onclick="doOrderAction('pay','${o.id}')">✅ Mark Paid</button>`; if(s==='20')btns+=`<button class="btn btn-primary btn-sm" onclick="doOrderAction('release','${o.id}')">🔓 Release</button>`; if(['5','10'].includes(s))btns+=`<button class="btn btn-red btn-sm" onclick="doOrderAction('cancel','${o.id}')">❌ Cancel</button>`; if(['10','20'].includes(s))btns+=`<button class="btn btn-ghost btn-sm" onclick="openChat('${o.id}')">💬 Chat</button>`; }
+  if(!compact){ if(s==='10')btns+=`<button class="btn btn-green btn-sm" onclick="doOrderAction('pay','${o.id}')">✅ Mark Paid</button>`; if(s==='20')btns+=`<button class="btn btn-primary btn-sm" onclick="doOrderAction('release','${o.id}')">🔓 Release</button>`; if(s==='10')btns+=`<button class="btn btn-red btn-sm" onclick="doOrderAction('cancel','${o.id}')">❌ Cancel</button>`; if(['10','20'].includes(s))btns+=`<button class="btn btn-ghost btn-sm" onclick="openChat('${o.id}')">💬 Chat</button>`; }
   return `<div class="card"><div class="card-hd"><div style="display:flex;align-items:center;gap:7px">${sideBadge(o.side)}<span style="font-size:11px;color:var(--muted)">${o.tokenId}/${o.currencyId}</span></div>${statusBadge(o.status)}</div><div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700">${fmtNum(o.amount)} <span style="font-size:10px;color:var(--muted);font-family:inherit">${o.currencyId}</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtNum(o.quantity,4)} ${o.tokenId} · ${timeAgo(o.createDate)}</div></div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">…${String(o.id||'').slice(-6)}</div></div>${btns?`<div class="btn-row">${btns}</div>`:''}</div>`;
 }
 
