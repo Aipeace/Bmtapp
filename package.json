@@ -6,8 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "bot": "node bot/index.js",
+    "start:all": "node server.js & node bot/index.js",
     "dev": "nodemon server.js",
-    "dev:bot": "nodemon bot/index.js"
+    "dev:bot": "nodemon bot/index.js",
+    "dev:all": "nodemon server.js & nodemon bot/index.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -9,6 +9,8 @@
  *     — removed redundant double-auth
  *  4. Rate limiter now runs AFTER requireAuth so req.telegramId is always set
  *  5. Stale cache: pool.evict() on key save now also clears old keys correctly
+ *  6. API 404s now return JSON instead of falling through to SPA index.html
+ *  7. Graceful shutdown on SIGINT/SIGTERM so Termux Ctrl+C frees the port cleanly
  */
 
 'use strict';
@@ -47,7 +49,6 @@ app.use((req, res, next) => {
 });
 
 // FIX #4: Rate limiter runs after auth so req.telegramId is populated.
-// Attach it as a middleware AFTER requireAuth/requireKeys in each route.
 const rateLimits = new Map();
 
 function checkRate(req, res, next) {
@@ -220,13 +221,32 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
+// FIX #6: Catch unmatched /api/* routes and return JSON 404 instead of
+// falling through to the SPA wildcard below (which would serve index.html).
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
+});
+
 // ── Static: Mini App SPA ───────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
 // ── Start ──────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀  Server on port ${PORT}`);
   console.log(`👑  Admin Telegram ID : ${process.env.ADMIN_TELEGRAM_ID || 'NOT SET'}`);
   console.log(`📱  Mini App          : http://localhost:${PORT}/`);
 });
+
+// FIX #7: Graceful shutdown — frees port on Ctrl+C in Termux
+function shutdown(signal) {
+  console.log(`\n${signal} received — shutting down gracefully…`);
+  server.close(() => {
+    console.log('✅  Server closed.');
+    process.exit(0);
+  });
+  // Force-exit if server hasn't closed within 5 s
+  setTimeout(() => { console.error('⚠️  Forced exit.'); process.exit(1); }, 5000);
+}
+process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

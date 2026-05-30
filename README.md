@@ -1,54 +1,129 @@
 # Bybit P2P Merchant
 
-This repository contains a multi-user Bybit P2P merchant app with:
+Multi-user Bybit P2P merchant app with:
 - Express server + REST API (`server.js`)
 - Telegram bot (`bot/index.js`)
 - Static mini app UI (`public/index.html`)
 - Simple local user store (`lib/store.js`)
 - Bybit P2P API wrapper (`lib/bybit-api.js`)
 
-## Setup
+---
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
+## Setup (Ubuntu / Termux)
 
-2. Copy `.env.example` to `.env` and update the values:
-   ```bash
-   cp .env.example .env
-   ```
+### Prerequisites
 
-3. Edit `.env` with your values:
-   ```env
-   TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-   ADMIN_TELEGRAM_ID=your-admin-telegram-id
-   BYBIT_API_KEY=your-bybit-api-key
-   BYBIT_API_SECRET=your-bybit-api-secret
-   BYBIT_TESTNET=false
-   MINI_APP_URL=https://your-app-url.example.com
-   ```
+**Node.js 18+** is required (the app uses the built-in `fetch` API).
 
-3. Run the web server:
-   ```bash
-   npm start
-   ```
+```bash
+# Termux
+pkg update && pkg install nodejs
 
-4. Run the Telegram bot in a separate process:
-   ```bash
-   npm run bot
-   ```
+# Ubuntu
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
 
-## Render deployment
+Verify: `node -v`  → should print `v18.x.x` or higher.
 
-The project includes `render.yml` for:
-- `bybit-p2p-server` web service
-- `bybit-p2p-bot` worker service
+### Install dependencies
 
-Set the same environment variables in Render and ensure `MINI_APP_URL` points to the deployed web service.
+```bash
+npm install
+```
+
+### Configure environment
+
+```bash
+cp .env.example .env
+nano .env        # or: vi .env
+```
+
+Fill in **all** required values:
+
+| Variable | Description |
+|---|---|
+| `TELEGRAM_BOT_TOKEN` | From [@BotFather](https://t.me/BotFather) |
+| `ADMIN_TELEGRAM_ID` | Your personal Telegram user ID |
+| `APP_SECRET` | Random 32-char string (protects stored API secrets) |
+| `MINI_APP_URL` | Your public URL after deploy (update after first run) |
+| `BYBIT_API_KEY` / `BYBIT_API_SECRET` | Only needed for single-user `api/index.js` mode |
+
+**Generate a secure APP_SECRET:**
+```bash
+node -e "console.log(require('crypto').randomBytes(24).toString('base64'))"
+```
+
+### Create the data directory
+
+The app creates `data/` automatically, but on Termux you can pre-create it:
+```bash
+mkdir -p data
+```
+
+---
+
+## Running
+
+### Option A — Server + Bot together (recommended for Termux)
+
+```bash
+npm run start:all
+```
+
+This starts both processes in the background. To stop, use `kill %1 %2` or press Ctrl+C twice.
+
+### Option B — Two separate terminals
+
+**Terminal 1 — Web server:**
+```bash
+npm start
+```
+
+**Terminal 2 — Bot:**
+```bash
+npm run bot
+```
+
+### Keep running after closing Termux (optional)
+
+Install `tmux` or use `nohup`:
+```bash
+# With tmux (recommended)
+pkg install tmux
+tmux new-session -d -s server "npm start"
+tmux new-session -d -s bot    "npm run bot"
+
+# Or with nohup
+nohup npm start   > server.log 2>&1 &
+nohup npm run bot > bot.log    2>&1 &
+```
+
+---
+
+## Bot commands
+
+| Command | Description |
+|---|---|
+| `/start` | Register / welcome |
+| `/setup` | Connect Bybit API keys |
+| `/menu` | Main dashboard |
+| `/mykeys` | View / remove saved keys |
+| `/ads` | List your ads |
+| `/orders` | List your orders |
+| `/balance` | Account balance |
+| `/analytics` | 30-day stats |
+| `/watch` / `/unwatch` | Order push notifications |
+| `/alert TOKEN CUR SIDE PRICE DIR` | Set a price alert |
+| `/alerts` / `/clearalerts` | View / clear alerts |
+
+**Admin only:** `/admin`, `/users`, `/suspend <id>`, `/reinstate <id>`, `/deluser <id>`, `/broadcast <msg>`
+
+---
 
 ## Notes
 
-- User data is stored in `data/users.json`.
-- The bot and web app use Telegram Web App init data for authentication.
-- `bybit-pool.js` caches per-user API clients and invalidates when keys change.
+- User data is stored in `data/users.json` (auto-created).
+- API secrets are AES-256-CBC encrypted using `APP_SECRET`.
+- The bot and web server are independent processes that share the same `data/users.json`.
+- Both processes handle `SIGINT`/`SIGTERM` gracefully (Ctrl+C frees the port cleanly).
