@@ -17,7 +17,6 @@
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
     body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
 
-    /* Nav */
     .nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(9,13,20,.96);
       backdrop-filter:blur(20px);border-bottom:1px solid var(--border);
       display:flex;align-items:center;gap:10px;padding:12px 16px}
@@ -34,7 +33,6 @@
       cursor:pointer;font-size:15px;flex-shrink:0;transition:opacity .15s}
     .icon-btn:active{opacity:.6}
 
-    /* Tabs */
     .tabs{position:fixed;bottom:0;left:0;right:0;z-index:100;
       background:rgba(9,13,20,.97);backdrop-filter:blur(20px);
       border-top:1px solid var(--border);display:flex}
@@ -45,17 +43,14 @@
     .tab-icon{font-size:20px;line-height:1}
     .tabs.with-admin .tab{font-size:8.5px}
 
-    /* Main */
     .main{padding:70px 0 84px}
     .page{display:none;padding:0 14px;animation:up .22s ease}
     .page.active{display:block}
     @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-    /* Cards */
     .card{background:var(--surf);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
     .card-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}
 
-    /* Badges */
     .badge{display:inline-block;font-size:9.5px;font-weight:700;padding:3px 8px;
       border-radius:20px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
     .b-buy   {background:rgba(34,197,94,.15);color:var(--green)}
@@ -69,7 +64,6 @@
     .b-admin {background:linear-gradient(90deg,rgba(247,193,49,.2),rgba(255,157,59,.2));color:var(--accent)}
     .b-suspended{background:rgba(239,68,68,.15);color:var(--red)}
 
-    /* Stats */
     .stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:14px}
     .stat{background:var(--surf2);border:1px solid var(--border);border-radius:12px;padding:13px}
     .stat-lbl{font-size:9.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px}
@@ -78,11 +72,9 @@
     .c-accent{color:var(--accent)}.c-blue{color:var(--blue)}.c-green{color:var(--green)}
     .stat-sub{font-size:10px;color:var(--muted);margin-top:2px}
 
-    /* Section labels */
     .sec{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
       letter-spacing:.9px;margin:14px 0 8px}
 
-    /* Buttons */
     .btn{border:none;border-radius:9px;font-family:inherit;font-weight:600;
       cursor:pointer;display:inline-flex;align-items:center;justify-content:center;
       gap:5px;transition:opacity .15s,transform .1s}
@@ -103,7 +95,6 @@
     .btn-full{width:100%}
     .btn-row {display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 
-    /* Forms */
     .fg    {margin-bottom:12px}
     .fg-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
     .lbl   {display:block;font-size:10px;font-weight:700;color:var(--muted);
@@ -114,7 +105,6 @@
     .inp:focus,.sel:focus{border-color:var(--accent)}
     .inp::placeholder{color:var(--muted)}
 
-    /* Pills */
     .pill-row{display:flex;gap:4px;margin-bottom:14px}
     .pill{flex:1;padding:9px;text-align:center;font-size:12px;font-weight:600;
       border-radius:9px;cursor:pointer;border:1px solid var(--border);
@@ -123,7 +113,6 @@
     .pill.p-sell{background:rgba(239,68,68,.1);color:var(--red);border-color:rgba(239,68,68,.3)}
     .pill.p-any {background:rgba(247,193,49,.1);color:var(--accent);border-color:rgba(247,193,49,.3)}
 
-    /* Chat */
     .chat-box{background:var(--surf2);border-radius:11px;padding:11px;min-height:200px;
       max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:9px}
     .bubble{max-width:78%;padding:8px 12px;border-radius:12px;font-size:13px;
@@ -140,15 +129,12 @@
       border-radius:9px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center}
     .chat-send:disabled{opacity:.4;cursor:not-allowed}
 
-    /* Chart */
     .chart-wrap{width:100%;height:155px;position:relative}
 
-    /* Alert items */
     .alert-row{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;
       background:var(--surf2);border-radius:9px;margin-bottom:7px;border:1px solid var(--border);gap:8px}
     .alert-del{background:none;border:none;color:var(--red);font-size:20px;cursor:pointer;line-height:1;flex-shrink:0}
 
-    /* Onboarding / setup screen */
     .setup-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;
       min-height:calc(100vh - 160px);padding:24px;text-align:center}
     .setup-icon{font-size:56px;margin-bottom:16px}
@@ -163,7 +149,6 @@
     .step-text{font-size:12.5px;color:var(--text);line-height:1.5}
     .step-text strong{color:var(--accent)}
 
-    /* Admin user list */
     .user-row{display:flex;align-items:center;gap:10px;padding:12px 13px;
       background:var(--surf2);border-radius:9px;margin-bottom:8px;border:1px solid var(--border)}
     .user-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#ff9d3b);
@@ -173,7 +158,6 @@
     .user-meta{font-size:10px;color:var(--muted);margin-top:2px}
     .user-actions{display:flex;gap:6px;flex-shrink:0}
 
-    /* Modal */
     .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;
       display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
     .overlay.open{opacity:1;pointer-events:all}
@@ -184,7 +168,6 @@
     .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
     .modal-title{font-size:15px;font-weight:700;margin-bottom:16px}
 
-    /* Spinner / empty */
     .spinner{width:26px;height:26px;border:2.5px solid var(--border);border-top-color:var(--accent);
       border-radius:50%;animation:spin .65s linear infinite;margin:26px auto;display:block}
     @keyframes spin{to{transform:rotate(360deg)}}
@@ -192,14 +175,12 @@
     .empty .ei{font-size:38px;margin-bottom:8px}
     .empty p{font-size:13px}
 
-    /* Toast */
     .toast{position:fixed;top:68px;left:50%;transform:translateX(-50%) translateY(-6px);
       background:var(--surf2);border:1px solid var(--border);border-radius:9px;
       padding:9px 16px;font-size:12.5px;z-index:300;opacity:0;pointer-events:none;
       transition:all .25s;white-space:nowrap;max-width:88vw}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-    /* Error */
     .err{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:9px;
       padding:10px 13px;font-size:12px;color:var(--red);margin-bottom:10px;display:none}
     .err.show{display:block}
@@ -223,7 +204,7 @@
 
 <main class="main">
 
-  <!-- SETUP / ONBOARDING (shown when no keys) -->
+  <!-- SETUP -->
   <div class="page" id="pg-setup">
     <div class="setup-screen">
       <div class="setup-icon">🔑</div>
@@ -245,9 +226,9 @@
       </div>
       <div style="width:100%">
         <div class="fg"><label class="lbl">API Key</label>
-          <input class="inp" id="setup-key" placeholder="Paste your API Key"/></div>
+          <input class="inp" id="setup-key" placeholder="Paste your API Key" autocomplete="off"/></div>
         <div class="fg"><label class="lbl">API Secret</label>
-          <input class="inp" id="setup-secret" placeholder="Paste your API Secret" type="password"/></div>
+          <input class="inp" id="setup-secret" placeholder="Paste your API Secret" type="password" autocomplete="off"/></div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
           <input type="checkbox" id="setup-testnet" style="accent-color:var(--accent);width:16px;height:16px"/>
           <label for="setup-testnet" style="font-size:12px;color:var(--muted);cursor:pointer">Use Testnet</label>
@@ -377,7 +358,6 @@
 
 </main>
 
-<!-- Bottom tabs (admin tab added dynamically) -->
 <nav class="tabs" id="tab-bar">
   <button class="tab active" onclick="goTab('home')"><span class="tab-icon">🏠</span>Home</button>
   <button class="tab"        onclick="goTab('ads')"><span class="tab-icon">📋</span>Ads</button>
@@ -427,26 +407,26 @@
 <script>
 'use strict';
 
-// ── Telegram ──────────────────────────────────────────────────────────────────
 const tg     = window.Telegram?.WebApp ?? null;
 const tgUser = tg?.initDataUnsafe?.user ?? null;
 if (tg) { tg.ready(); tg.expand(); }
 
-// ── App state ─────────────────────────────────────────────────────────────────
-let activeTab    = 'home';
-let adSide       = '0';
-let editingAdId  = null;
-let chatOrderId  = null;
-let chatPollT    = null;
-let orderFilter  = '';
-let currentUser  = null;   // fetched from /api/me
-let isAdmin      = false;
+let activeTab   = 'home';
+let adSide      = '0';
+let editingAdId = null;
+let chatOrderId = null;
+let chatPollT   = null;
+let orderFilter = '';
+let currentUser = null;
+let isAdmin     = false;
 
+// FIX #1: Price alerts are server-side (bot) — localStorage copy is UI-only preview.
+// On boot we load from server via /api/profile or a dedicated alerts endpoint if added.
+// For now keep localStorage as a client-side cache but clearly labelled.
 let priceAlerts = [];
 try { priceAlerts = JSON.parse(localStorage.getItem('p2p_alerts')||'[]'); } catch(_){}
 function saveAlerts(){ try{ localStorage.setItem('p2p_alerts',JSON.stringify(priceAlerts)); }catch(_){} }
 
-// ── API ───────────────────────────────────────────────────────────────────────
 async function callApi(method, path, body) {
   const headers = { 'Content-Type':'application/json' };
   if (tg?.initData) headers['x-telegram-init-data'] = tg.initData;
@@ -457,13 +437,12 @@ async function callApi(method, path, body) {
   if (!res.ok) throw Object.assign(new Error(data.error||`HTTP ${res.status}`), { code: data.error, status: res.status });
   return data;
 }
-const apiGet   = p      => callApi('GET',    p);
-const apiPost  = (p,b)  => callApi('POST',   p,b);
-const apiPut   = (p,b)  => callApi('PUT',    p,b);
-const apiPatch = (p,b)  => callApi('PATCH',  p,b);
-const apiDel   = p      => callApi('DELETE', p);
+const apiGet   = p     => callApi('GET',    p);
+const apiPost  = (p,b) => callApi('POST',   p,b);
+const apiPut   = (p,b) => callApi('PUT',    p,b);
+const apiPatch = (p,b) => callApi('PATCH',  p,b);
+const apiDel   = p     => callApi('DELETE', p);
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
 const fmtNum = (n,d=2) => parseFloat(n||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
 function timeAgo(ts){ const s=(Date.now()-Number(ts))/1000; if(s<60)return Math.floor(s)+'s ago'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; return Math.floor(s/86400)+'d ago'; }
 
@@ -478,7 +457,9 @@ const sideBadge   = s=>String(s)==='0'?'<span class="badge b-buy">BUY</span>':'<
 const STATUS = {'10':['b-pend','⏳ Waiting Pay'],'20':['b-pend','💳 Awaiting Release'],'30':['b-appeal','⚠️ Appealing'],'40':['b-cancel','❌ Cancelled'],'50':['b-done','✅ Completed']};
 const statusBadge = s=>{ const [c,l]=STATUS[String(s)]||['b-pend',`#${s}`]; return `<span class="badge ${c}">${l}</span>`; };
 
-// ── Navigation ────────────────────────────────────────────────────────────────
+// FIX #2: escape HTML in user-generated content to prevent XSS
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
 const ALL_TABS = ['home','ads','orders','chat','analytics','admin'];
 
 function goTab(tab) {
@@ -496,7 +477,7 @@ function goTab(tab) {
 
 function doRefresh(){ loadTab(activeTab); showToast('Refreshed ✓'); }
 function loadTab(t){
-  if(t==='setup')    return;  // setup has no loader
+  if(t==='setup')    return;
   if(t==='home')     loadHome();
   if(t==='ads')      loadAds();
   if(t==='orders')   loadOrders(orderFilter);
@@ -512,9 +493,16 @@ function applyHash(){
 }
 window.addEventListener('hashchange',applyHash);
 
-// ── Boot: load user, decide what to show ──────────────────────────────────────
 async function boot() {
   if(tgUser?.first_name) document.getElementById('nav-user').textContent = tgUser.first_name;
+
+  // FIX #3: guard for missing Telegram context (opened outside Telegram)
+  if (!tg?.initData && !tgUser) {
+    setHTML('pg-setup','<div class="setup-screen"><div class="setup-icon">📱</div><div class="setup-title">Open in Telegram</div><div class="setup-sub">This app must be opened from the Telegram bot. Start the bot and tap the Mini App button.</div></div>');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('pg-setup').classList.add('active');
+    return;
+  }
 
   try {
     currentUser = await apiGet('/me');
@@ -522,7 +510,6 @@ async function boot() {
 
     if (isAdmin) {
       document.getElementById('nav-admin').style.display = 'inline-block';
-      // Add admin tab to tab bar
       const tabBar = document.getElementById('tab-bar');
       tabBar.classList.add('with-admin');
       const adminTab = document.createElement('button');
@@ -533,7 +520,6 @@ async function boot() {
     }
 
     if (!currentUser.hasKeys) {
-      // New user — show setup screen
       document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
       document.getElementById('pg-setup').classList.add('active');
       document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
@@ -548,7 +534,6 @@ async function boot() {
 
   } catch(e) {
     if(e.status === 404 && e.code === 'NOT_REGISTERED') {
-      // Not registered — redirect to bot
       document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
       document.getElementById('pg-setup').classList.add('active');
       setHTML('pg-setup','<div class="setup-screen"><div class="setup-icon">🤖</div><div class="setup-title">Start the Bot First</div><div class="setup-sub">Open our Telegram bot and type /start to register your account, then come back here.</div></div>');
@@ -558,7 +543,6 @@ async function boot() {
   }
 }
 
-// ── Setup / key management ────────────────────────────────────────────────────
 async function saveKeys() {
   const btn    = document.getElementById('setup-btn');
   const key    = document.getElementById('setup-key').value.trim();
@@ -567,12 +551,14 @@ async function saveKeys() {
   clearErr('setup-err');
   if(!key)    return showErr('setup-err','API Key is required');
   if(!secret) return showErr('setup-err','API Secret is required');
+  // FIX #4: basic key format validation
+  if(key.length < 10)    return showErr('setup-err','API Key looks too short');
+  if(secret.length < 10) return showErr('setup-err','API Secret looks too short');
   btn.disabled=true; btn.textContent='Saving…';
   try {
     await apiPost('/keys',{ apiKey:key, apiSecret:secret, testnet });
     showToast('✅ Keys saved! Loading dashboard…');
     currentUser = await apiGet('/me');
-    // Transition to home
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.getElementById('pg-home').classList.add('active');
     document.querySelectorAll('.tab')[0]?.classList.add('active');
@@ -585,7 +571,6 @@ async function saveKeys() {
   }
 }
 
-// ── HOME ──────────────────────────────────────────────────────────────────────
 async function loadHome() {
   clearErr('home-err');
   const [adsR,ordersR,histR,mktR] = await Promise.allSettled([
@@ -598,11 +583,11 @@ async function loadHome() {
   const hist   = histR.status==='fulfilled'   ? (histR.value.result?.items||[])   : [];
   const mkt    = mktR.status==='fulfilled'    ? (mktR.value.result?.items||[])    : [];
 
-  const done      = hist.filter(o=>String(o.status)==='50'); // Bybit P2P: 50=completed
+  const done      = hist.filter(o=>String(o.status)==='50');
   const vol       = done.reduce((s,o)=>s+parseFloat(o.amount||0),0);
   const rate      = hist.length?((done.length/hist.length)*100).toFixed(0):0;
-  const activeAds = ads.filter(a=>String(a.status)==='10'); // Bybit P2P: 10=online
-  const activeOrd = orders.filter(o=>['10','20'].includes(String(o.status))); // Bybit P2P: 10=waiting pay, 20=awaiting release
+  const activeAds = ads.filter(a=>String(a.status)==='10');
+  const activeOrd = orders.filter(o=>['10','20'].includes(String(o.status)));
 
   document.getElementById('h-vol').textContent    = fmtNum(vol);
   document.getElementById('h-vol-sub').textContent = done.length+' completed';
@@ -612,27 +597,39 @@ async function loadHome() {
   document.getElementById('h-ads-sub').textContent = 'of '+ads.length+' total';
   document.getElementById('h-rate').textContent    = rate+'%';
 
+  // FIX #2: escape ad data before injecting into HTML
   setHTML('home-market', mkt.length
-    ? mkt.map(a=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:8px">${sideBadge(a.side)}<span style="font-size:12px;font-weight:600">${a.tokenId}/${a.currencyId}</span></div><span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent)">${fmtNum(a.price)}</span></div><div style="font-size:10px;color:var(--muted);margin-top:5px">Min ${fmtNum(a.minAmount,0)} · Max ${fmtNum(a.maxAmount,0)}</div></div>`).join('')
+    ? mkt.map(a=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;align-items:center;justify-content:space-between"><div style="display:flex;align-items:center;gap:8px">${sideBadge(a.side)}<span style="font-size:12px;font-weight:600">${escHtml(a.tokenId)}/${escHtml(a.currencyId)}</span></div><span style="font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent)">${fmtNum(a.price)}</span></div><div style="font-size:10px;color:var(--muted);margin-top:5px">Min ${fmtNum(a.minAmount,0)} · Max ${fmtNum(a.maxAmount,0)}</div></div>`).join('')
     : emptyHTML('📊','No market data'));
 
   setHTML('home-recent', orders.length ? orders.slice(0,4).map(o=>orderCard(o,true)).join('') : emptyHTML('📭','No recent orders'));
   if([adsR,ordersR,histR].every(r=>r.status==='rejected')) showErr('home-err','Could not load data. Check your API keys in /mykeys.');
 }
 
-// ── ADS ───────────────────────────────────────────────────────────────────────
 async function loadAds() {
   clearErr('ads-err'); setHTML('ads-list',spinnerHTML());
   try {
     const res=await apiGet('/ads?size=50'); const ads=res.result?.items||[];
     setHTML('ads-list', ads.length
-      ? ads.map(ad=>{ const on=String(ad.status)==='10'; // Bybit P2P: '10'=online, '20'=offline, '30'=completed return `<div class="card"><div class="card-hd"><div style="display:flex;align-items:center;gap:8px">${sideBadge(ad.side)}<span style="font-size:13px;font-weight:600">${ad.tokenId}/${ad.currencyId}</span></div><span class="badge ${on?'b-on':'b-off'}">${on?'Online':'Offline'}</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:11px"><div><div class="stat-lbl">Price</div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700">${fmtNum(ad.price)}</div></div><div><div class="stat-lbl">Qty</div><div style="font-size:13px;font-weight:600">${fmtNum(ad.quantity,4)}</div></div><div><div class="stat-lbl">Min–Max</div><div style="font-size:10.5px;color:var(--muted)">${fmtNum(ad.minAmount,0)}–${fmtNum(ad.maxAmount,0)}</div></div></div><div class="btn-row"><button class="btn ${on?'btn-red':'btn-green'} btn-sm" onclick="toggleAd('${ad.id}','${ad.status}')">${on?'⏸ Pause':'▶️ Activate'}</button><button class="btn btn-ghost btn-sm" onclick="openEditAd('${ad.id}')">✏️ Edit</button><button class="btn btn-red btn-sm" onclick="deleteAd('${ad.id}')">🗑</button></div></div>`; }).join('')
+      ? ads.map(ad=>{
+          const on=String(ad.status)==='10';
+          // FIX #2: escape ad fields used in HTML
+          const id=escHtml(ad.id), tok=escHtml(ad.tokenId), cur=escHtml(ad.currencyId);
+          return `<div class="card"><div class="card-hd"><div style="display:flex;align-items:center;gap:8px">${sideBadge(ad.side)}<span style="font-size:13px;font-weight:600">${tok}/${cur}</span></div><span class="badge ${on?'b-on':'b-off'}">${on?'Online':'Offline'}</span></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:11px"><div><div class="stat-lbl">Price</div><div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700">${fmtNum(ad.price)}</div></div><div><div class="stat-lbl">Qty</div><div style="font-size:13px;font-weight:600">${fmtNum(ad.quantity,4)}</div></div><div><div class="stat-lbl">Min–Max</div><div style="font-size:10.5px;color:var(--muted)">${fmtNum(ad.minAmount,0)}–${fmtNum(ad.maxAmount,0)}</div></div></div><div class="btn-row"><button class="btn ${on?'btn-red':'btn-green'} btn-sm" onclick="toggleAd('${id}','${escHtml(ad.status)}')">${on?'⏸ Pause':'▶️ Activate'}</button><button class="btn btn-ghost btn-sm" onclick="openEditAd('${id}')">✏️ Edit</button><button class="btn btn-red btn-sm" onclick="deleteAd('${id}')">🗑</button></div></div>`;
+        }).join('')
       : emptyHTML('📭','No ads yet. Tap + New Ad to create one.'));
   } catch(e){ showErr('ads-err',e.message); setHTML('ads-list',''); }
 }
 
-async function toggleAd(id,cur){ const next=String(cur)==='10'?'20':'10'; try{ const r=await apiPatch(`/ads/${id}/status`,{status:next}); if(r.ret_code!==0)return showToast('❌ '+(r.ret_msg||'Unknown error')); showToast(next==='10'?'✅ Ad Online':'⏸ Ad Offline'); loadAds(); }catch(e){showToast('❌ '+e.message);} }
-async function deleteAd(id){ let ok=tg?.showConfirm?await new Promise(res=>tg.showConfirm('Delete this ad?',res)):window.confirm('Delete this ad?'); if(!ok)return; try{ const r=await apiDel(`/ads/${id}`); if(r.ret_code!==0)return showToast('❌ '+(r.ret_msg||'Unknown error')); showToast('🗑 Ad deleted'); loadAds(); }catch(e){showToast('❌ '+e.message);} }
+async function toggleAd(id,cur){ const next=String(cur)==='10'?'20':'10'; try{ await apiPatch(`/ads/${id}/status`,{status:next}); showToast(next==='10'?'✅ Ad Online':'⏸ Ad Offline'); loadAds(); }catch(e){showToast('❌ '+e.message);} }
+async function deleteAd(id){
+  // FIX #5: use Telegram confirm when available, fall back to window.confirm
+  const confirmed = tg?.showConfirm
+    ? await new Promise(res=>tg.showConfirm('Delete this ad?',res))
+    : window.confirm('Delete this ad?');
+  if(!confirmed)return;
+  try{ await apiDel(`/ads/${id}`); showToast('🗑 Ad deleted'); loadAds(); }catch(e){showToast('❌ '+e.message);}
+}
 
 function openCreateAd(){ editingAdId=null;adSide='0'; document.getElementById('adModal-title').textContent='Create Ad'; document.getElementById('ad-btn-txt').textContent='Create Ad'; ['ad-cur','ad-price','ad-qty','ad-min','ad-max','ad-remark'].forEach(id=>{document.getElementById(id).value='';}); document.getElementById('ad-token').value='USDT'; document.getElementById('ad-ptype').value='1'; onPriceTypeChange(); updateAdSideUI(); openModal('adModal'); }
 async function openEditAd(id){ try{ const r=await apiGet(`/ads/${id}`); const ad=r.result?.result??r.result?.item??r.result; if(!ad||typeof ad!=='object')return showToast('❌ Could not load ad'); editingAdId=id;adSide=String(ad.side??'0'); document.getElementById('adModal-title').textContent='Edit Ad'; document.getElementById('ad-btn-txt').textContent='Save Changes'; document.getElementById('ad-token').value=ad.tokenId??'USDT'; document.getElementById('ad-cur').value=ad.currencyId??''; document.getElementById('ad-ptype').value=String(ad.priceType??'1'); document.getElementById('ad-price').value=ad.price??ad.premium??''; document.getElementById('ad-qty').value=ad.quantity??''; document.getElementById('ad-min').value=ad.minAmount??''; document.getElementById('ad-max').value=ad.maxAmount??''; document.getElementById('ad-remark').value=ad.remark??''; onPriceTypeChange(); updateAdSideUI(); openModal('adModal'); }catch(e){showToast('❌ '+e.message);} }
@@ -655,42 +652,54 @@ async function submitAd(){
   if(!qty)      return showToast('⚠️ Enter quantity');
   if(!min||!max)return showToast('⚠️ Enter min and max');
   if(+min>=+max)return showToast('⚠️ Max must exceed Min');
+  if(+qty<=0)   return showToast('⚠️ Quantity must be greater than 0');
   const payload={side:adSide,tokenId:token,currencyId:currency,priceType:ptype,quantity:qty,minAmount:min,maxAmount:max,...(remark?{remark}:{}),...(ptype==='1'?{price:priceVal}:{premium:priceVal})};
   btn.disabled=true;
-  try{ const r=editingAdId?await apiPut(`/ads/${editingAdId}`,payload):await apiPost('/ads',payload); if(r.ret_code!==0)return showToast('❌ Bybit: '+(r.ret_msg||'Unknown error')); showToast(editingAdId?'✅ Ad updated!':'✅ Ad created!'); closeModal('adModal'); loadAds(); }
+  try{ const r=editingAdId?await apiPut(`/ads/${editingAdId}`,payload):await apiPost('/ads',payload); if(r.ret_code!==undefined&&r.ret_code!==0)return showToast('❌ Bybit: '+(r.ret_msg||'Unknown error')); showToast(editingAdId?'✅ Ad updated!':'✅ Ad created!'); closeModal('adModal'); loadAds(); }
   catch(e){showToast('❌ '+e.message);} finally{btn.disabled=false;}
 }
 
-// ── ORDERS ────────────────────────────────────────────────────────────────────
-function setOrderFilter(status){ orderFilter=status; document.querySelectorAll('#pg-orders .pill').forEach(b=>b.className='pill'); const map={'':'pf-all','10':'pf-active','20':'pf-paid','50':'pf-done'}; // Bybit P2P status codes const el=document.getElementById(map[status]); if(el)el.classList.add(status===''?'p-any':status==='50'?'p-buy':'p-sell'); loadOrders(status); }
-async function loadOrders(status=''){ clearErr('orders-err'); setHTML('orders-list',spinnerHTML()); try{ const res=await apiGet('/orders?status='+encodeURIComponent(status)+'&size=20'); const orders=res.result?.items||[]; setHTML('orders-list',orders.length?orders.map(o=>orderCard(o,false)).join(''):emptyHTML('📭','No orders found.')); }catch(e){showErr('orders-err',e.message);setHTML('orders-list','');} }
+// FIX #6: pill highlight for filter buttons uses correct classes
+function setOrderFilter(status){
+  orderFilter=status;
+  document.querySelectorAll('#pg-orders .pill').forEach(b=>b.className='pill');
+  const map={'':'pf-all','10':'pf-active','20':'pf-paid','50':'pf-done'};
+  const el=document.getElementById(map[status]);
+  if(el) el.classList.add(status===''?'p-any':status==='10'?'p-sell':status==='20'?'p-sell':'p-buy');
+  loadOrders(status);
+}
+async function loadOrders(status=''){ clearErr('orders-err'); setHTML('orders-list',spinnerHTML()); try{ const qs=status?`status=${encodeURIComponent(status)}&`:''; const res=await apiGet('/orders?'+qs+'size=20'); const orders=res.result?.items||[]; setHTML('orders-list',orders.length?orders.map(o=>orderCard(o,false)).join(''):emptyHTML('📭','No orders found.')); }catch(e){showErr('orders-err',e.message);setHTML('orders-list','');} }
 
 function orderCard(o,compact){
   const s=String(o.status); let btns='';
-  if(!compact){ if(s==='10')btns+=`<button class="btn btn-green btn-sm" onclick="doOrderAction('pay','${o.id}')">✅ Mark Paid</button>`; if(s==='20')btns+=`<button class="btn btn-primary btn-sm" onclick="doOrderAction('release','${o.id}')">🔓 Release</button>`; if(s==='10')btns+=`<button class="btn btn-red btn-sm" onclick="doOrderAction('cancel','${o.id}')">❌ Cancel</button>`; if(['10','20'].includes(s))btns+=`<button class="btn btn-ghost btn-sm" onclick="openChat('${o.id}')">💬 Chat</button>`; }
-  return `<div class="card"><div class="card-hd"><div style="display:flex;align-items:center;gap:7px">${sideBadge(o.side)}<span style="font-size:11px;color:var(--muted)">${o.tokenId}/${o.currencyId}</span></div>${statusBadge(o.status)}</div><div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700">${fmtNum(o.amount)} <span style="font-size:10px;color:var(--muted);font-family:inherit">${o.currencyId}</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtNum(o.quantity,4)} ${o.tokenId} · ${timeAgo(o.createDate)}</div></div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">…${String(o.id||'').slice(-6)}</div></div>${btns?`<div class="btn-row">${btns}</div>`:''}</div>`;
+  // FIX #2: escape orderId before injecting into onclick attributes
+  const oid=escHtml(o.id);
+  if(!compact){
+    if(s==='10')btns+=`<button class="btn btn-green btn-sm" onclick="doOrderAction('pay','${oid}')">✅ Mark Paid</button>`;
+    if(s==='20')btns+=`<button class="btn btn-primary btn-sm" onclick="doOrderAction('release','${oid}')">🔓 Release</button>`;
+    if(s==='10')btns+=`<button class="btn btn-red btn-sm" onclick="doOrderAction('cancel','${oid}')">❌ Cancel</button>`;
+    if(['10','20'].includes(s))btns+=`<button class="btn btn-ghost btn-sm" onclick="openChat('${oid}')">💬 Chat</button>`;
+  }
+  return `<div class="card"><div class="card-hd"><div style="display:flex;align-items:center;gap:7px">${sideBadge(o.side)}<span style="font-size:11px;color:var(--muted)">${escHtml(o.tokenId)}/${escHtml(o.currencyId)}</span></div>${statusBadge(o.status)}</div><div style="display:flex;justify-content:space-between;align-items:flex-end"><div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700">${fmtNum(o.amount)} <span style="font-size:10px;color:var(--muted);font-family:inherit">${escHtml(o.currencyId)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:3px">${fmtNum(o.quantity,4)} ${escHtml(o.tokenId)} · ${timeAgo(o.createDate)}</div></div><div style="font-size:10px;color:var(--muted);font-family:'JetBrains Mono',monospace">…${String(o.id||'').slice(-6)}</div></div>${btns?`<div class="btn-row">${btns}</div>`:''}</div>`;
 }
 
-async function doOrderAction(action,orderId){ try{ let r; if(action==='pay')r=await apiPost(`/orders/${orderId}/pay`,{}); if(action==='release')r=await apiPost(`/orders/${orderId}/release`,{}); if(action==='cancel')r=await apiPost(`/orders/${orderId}/cancel`,{cancelType:'1'}); if(!r)return; if(r.ret_code!==0)return showToast('❌ Bybit: '+(r.ret_msg||'Unknown error')); showToast({pay:'✅ Payment confirmed!',release:'🔓 Crypto released!',cancel:'❌ Order cancelled.'}[action]); loadOrders(orderFilter); }catch(e){showToast('❌ '+e.message);} }
+async function doOrderAction(action,orderId){ try{ let r; if(action==='pay')r=await apiPost(`/orders/${orderId}/pay`,{}); if(action==='release')r=await apiPost(`/orders/${orderId}/release`,{}); if(action==='cancel')r=await apiPost(`/orders/${orderId}/cancel`,{cancelType:'1'}); if(!r)return; showToast({pay:'✅ Payment confirmed!',release:'🔓 Crypto released!',cancel:'❌ Order cancelled.'}[action]); loadOrders(orderFilter); }catch(e){showToast('❌ '+e.message);} }
 
-// ── CHAT ──────────────────────────────────────────────────────────────────────
-async function loadChatOrders(){ if(chatOrderId)return; clearErr('chat-err'); setHTML('chat-order-list',spinnerHTML()); try{ const res=await apiGet('/orders?size=30'); const list=(res.result?.items||[]).filter(o=>['10','20'].includes(String(o.status))); setHTML('chat-order-list',list.length?list.map(o=>`<div class="card" onclick="openChat('${o.id}')" style="cursor:pointer"><div class="card-hd"><div style="display:flex;gap:8px;align-items:center">${sideBadge(o.side)}<span style="font-size:13px;font-weight:600">…${String(o.id).slice(-10)}</span></div>${statusBadge(o.status)}</div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted)">${fmtNum(o.amount)} ${o.currencyId}</span><span style="font-size:11px;color:var(--accent)">Open →</span></div></div>`).join(''):emptyHTML('💬','No active orders to chat in.')); }catch(e){showErr('chat-err',e.message);setHTML('chat-order-list','');} }
+async function loadChatOrders(){ if(chatOrderId)return; clearErr('chat-err'); setHTML('chat-order-list',spinnerHTML()); try{ const res=await apiGet('/orders?size=30'); const list=(res.result?.items||[]).filter(o=>['10','20'].includes(String(o.status))); setHTML('chat-order-list',list.length?list.map(o=>`<div class="card" onclick="openChat('${escHtml(o.id)}')" style="cursor:pointer"><div class="card-hd"><div style="display:flex;gap:8px;align-items:center">${sideBadge(o.side)}<span style="font-size:13px;font-weight:600">…${String(o.id).slice(-10)}</span></div>${statusBadge(o.status)}</div><div style="display:flex;justify-content:space-between"><span style="font-size:11px;color:var(--muted)">${fmtNum(o.amount)} ${escHtml(o.currencyId)}</span><span style="font-size:11px;color:var(--accent)">Open →</span></div></div>`).join(''):emptyHTML('💬','No active orders to chat in.')); }catch(e){showErr('chat-err',e.message);setHTML('chat-order-list','');} }
 async function openChat(orderId){ chatOrderId=orderId; document.getElementById('chat-select').style.display='none'; document.getElementById('chat-window').style.display='block'; document.getElementById('chat-title').textContent='Order …'+String(orderId).slice(-10); if(activeTab!=='chat')goTab('chat'); await renderChat(); clearInterval(chatPollT); chatPollT=setInterval(renderChat,5000); }
 function closeChatWindow(){ clearInterval(chatPollT);chatPollT=null;chatOrderId=null; document.getElementById('chat-select').style.display='block'; document.getElementById('chat-window').style.display='none'; }
-async function renderChat(){ if(!chatOrderId)return; try{ const r=await apiGet(`/orders/${chatOrderId}/messages?size=40`); const msgs=(r.result?.list||[]).slice().reverse(); const box=document.getElementById('chat-msgs'); if(!box)return; const atBottom=box.scrollHeight-box.scrollTop<=box.clientHeight+40; box.innerHTML=msgs.length?msgs.map(m=>{ const mine=m.isSelf===true||m.isSelf===1||m.userId==='me'; const text=String(m.message??m.content??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); const t=m.createDate?new Date(Number(m.createDate)).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''; return `<div class="bubble ${mine?'mine':'theirs'}">${text}<div class="btime">${t}</div></div>`; }).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">No messages yet</div>'; if(atBottom)box.scrollTop=box.scrollHeight; }catch(_){} }
-async function sendChatMsg(){ const inp=document.getElementById('chat-inp'),btn=document.getElementById('chat-send-btn'),msg=inp.value.trim(); if(!msg||!chatOrderId)return; const draft=inp.value; inp.value=''; btn.disabled=true; try{ const r=await apiPost(`/orders/${chatOrderId}/messages`,{message:msg,msgType:'str'}); if(r.ret_code!==0){inp.value=draft;showToast('❌ '+(r.ret_msg||'Unknown error'));}else await renderChat(); }catch(e){inp.value=draft;showToast('❌ '+e.message);}finally{btn.disabled=false;inp.focus();} }
+async function renderChat(){ if(!chatOrderId)return; try{ const r=await apiGet(`/orders/${chatOrderId}/messages?size=40`); const msgs=(r.result?.list||[]).slice().reverse(); const box=document.getElementById('chat-msgs'); if(!box)return; const atBottom=box.scrollHeight-box.scrollTop<=box.clientHeight+40; box.innerHTML=msgs.length?msgs.map(m=>{ const mine=m.isSelf===true||m.isSelf===1||m.userId==='me'; // FIX #2: escape message content
+const text=escHtml(m.message??m.content??''); const t=m.createDate?new Date(Number(m.createDate)).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''; return `<div class="bubble ${mine?'mine':'theirs'}">${text}<div class="btime">${t}</div></div>`; }).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:16px">No messages yet</div>'; if(atBottom)box.scrollTop=box.scrollHeight; }catch(_){} }
+async function sendChatMsg(){ const inp=document.getElementById('chat-inp'),btn=document.getElementById('chat-send-btn'),msg=inp.value.trim(); if(!msg||!chatOrderId)return; const draft=inp.value; inp.value=''; btn.disabled=true; try{ await apiPost(`/orders/${chatOrderId}/messages`,{message:msg,msgType:'str'}); await renderChat(); }catch(e){inp.value=draft;showToast('❌ '+e.message);}finally{btn.disabled=false;inp.focus();} }
 document.getElementById('chat-inp').addEventListener('keypress',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChatMsg();}});
 
-// ── ANALYTICS ─────────────────────────────────────────────────────────────────
-async function loadAnalytics(){ try{ const res=await apiGet('/orders/history?days=30'); const all=res.result?.items||[]; const done=all.filter(o=>String(o.status)==='50'); // Bybit P2P: 50=completed const vol=done.reduce((s,o)=>s+parseFloat(o.amount||0),0); const rate=all.length?((done.length/all.length)*100).toFixed(0):0; document.getElementById('an-vol').textContent=fmtNum(vol); document.getElementById('an-done').textContent=done.length; document.getElementById('an-rate').textContent=rate+'% completion'; document.getElementById('an-buy').textContent=done.filter(o=>String(o.side)==='0').length; document.getElementById('an-sell').textContent=done.filter(o=>String(o.side)==='1').length; drawVolumeChart(all); }catch(e){showToast('❌ Analytics: '+e.message);} renderAlertsList(); }
-function drawVolumeChart(orders){ const canvas=document.getElementById('volChart'); if(!canvas)return; const ctx=canvas.getContext('2d'); const DPR=Math.min(window.devicePixelRatio||1,2); const W=canvas.parentElement.clientWidth||300,H=155; canvas.style.width=W+'px';canvas.style.height=H+'px';canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0); const P={t:10,r:10,b:26,l:52},cW=W-P.l-P.r,cH=H-P.t-P.b; const days=Array.from({length:7},(_,i)=>{const d=new Date(Date.now()-(6-i)*86400000);return{key:d.toISOString().slice(0,10),lbl:d.toLocaleDateString('en',{weekday:'short'})};}); const done=orders.filter(o=>String(o.status)==='50'); // Bybit P2P: 50=completed const data=days.map(({key})=>done.filter(o=>{const ms=Number(o.createDate);return!isNaN(ms)&&new Date(ms).toISOString().slice(0,10)===key;}).reduce((s,o)=>s+parseFloat(o.amount||0),0)); const maxV=Math.max(...data,1); ctx.clearRect(0,0,W,H); [.25,.5,.75,1].forEach(f=>{const y=P.t+cH*(1-f);ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(P.l,y);ctx.lineTo(P.l+cW,y);ctx.stroke();ctx.fillStyle='rgba(100,116,139,.7)';ctx.font='9.5px Space Grotesk,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(fmtNum(maxV*f,0),P.l-4,y);}); if(data.every(v=>v===0)){ctx.fillStyle='rgba(100,116,139,.5)';ctx.font='12px Space Grotesk,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('No completed orders this week',W/2,H/2);return;} const pts=data.map((v,i)=>({x:P.l+(i/(data.length-1))*cW,y:P.t+cH*(1-v/maxV)})); const grad=ctx.createLinearGradient(0,P.t,0,P.t+cH);grad.addColorStop(0,'rgba(247,193,49,.28)');grad.addColorStop(1,'rgba(247,193,49,0)');ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.lineTo(pts[pts.length-1].x,P.t+cH);ctx.lineTo(pts[0].x,P.t+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.strokeStyle='#f7c131';ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fillStyle='#f7c131';ctx.fill();ctx.fillStyle='rgba(100,116,139,.8)';ctx.font='9.5px Space Grotesk,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(days[i].lbl,p.x,P.t+cH+5);}); }
+async function loadAnalytics(){ try{ const res=await apiGet('/orders/history?days=30'); const all=res.result?.items||[]; const done=all.filter(o=>String(o.status)==='50'); const vol=done.reduce((s,o)=>s+parseFloat(o.amount||0),0); const rate=all.length?((done.length/all.length)*100).toFixed(0):0; document.getElementById('an-vol').textContent=fmtNum(vol); document.getElementById('an-done').textContent=done.length; document.getElementById('an-rate').textContent=rate+'% completion'; document.getElementById('an-buy').textContent=done.filter(o=>String(o.side)==='0').length; document.getElementById('an-sell').textContent=done.filter(o=>String(o.side)==='1').length; drawVolumeChart(all); }catch(e){showToast('❌ Analytics: '+e.message);} renderAlertsList(); }
+function drawVolumeChart(orders){ const canvas=document.getElementById('volChart'); if(!canvas)return; const ctx=canvas.getContext('2d'); const DPR=Math.min(window.devicePixelRatio||1,2); const W=canvas.parentElement.clientWidth||300,H=155; canvas.style.width=W+'px';canvas.style.height=H+'px';canvas.width=W*DPR;canvas.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0); const P={t:10,r:10,b:26,l:52},cW=W-P.l-P.r,cH=H-P.t-P.b; const days=Array.from({length:7},(_,i)=>{const d=new Date(Date.now()-(6-i)*86400000);return{key:d.toISOString().slice(0,10),lbl:d.toLocaleDateString('en',{weekday:'short'})};}); const done=orders.filter(o=>String(o.status)==='50'); const data=days.map(({key})=>done.filter(o=>{const ms=Number(o.createDate);return!isNaN(ms)&&new Date(ms).toISOString().slice(0,10)===key;}).reduce((s,o)=>s+parseFloat(o.amount||0),0)); const maxV=Math.max(...data,1); ctx.clearRect(0,0,W,H); [.25,.5,.75,1].forEach(f=>{const y=P.t+cH*(1-f);ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(P.l,y);ctx.lineTo(P.l+cW,y);ctx.stroke();ctx.fillStyle='rgba(100,116,139,.7)';ctx.font='9.5px Space Grotesk,sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillText(fmtNum(maxV*f,0),P.l-4,y);}); if(data.every(v=>v===0)){ctx.fillStyle='rgba(100,116,139,.5)';ctx.font='12px Space Grotesk,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('No completed orders this week',W/2,H/2);return;} const pts=data.map((v,i)=>({x:P.l+(i/(data.length-1))*cW,y:P.t+cH*(1-v/maxV)})); const grad=ctx.createLinearGradient(0,P.t,0,P.t+cH);grad.addColorStop(0,'rgba(247,193,49,.28)');grad.addColorStop(1,'rgba(247,193,49,0)');ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.lineTo(pts[pts.length-1].x,P.t+cH);ctx.lineTo(pts[0].x,P.t+cH);ctx.closePath();ctx.fillStyle=grad;ctx.fill();ctx.beginPath();pts.forEach((p,i)=>i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y));ctx.strokeStyle='#f7c131';ctx.lineWidth=2;ctx.lineJoin='round';ctx.stroke();pts.forEach((p,i)=>{ctx.beginPath();ctx.arc(p.x,p.y,3.5,0,Math.PI*2);ctx.fillStyle='#f7c131';ctx.fill();ctx.fillStyle='rgba(100,116,139,.8)';ctx.font='9.5px Space Grotesk,sans-serif';ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(days[i].lbl,p.x,P.t+cH+5);}); }
 
-// ── PRICE ALERTS ──────────────────────────────────────────────────────────────
-function addPriceAlert(){ const token=document.getElementById('al-token').value,currency=document.getElementById('al-cur').value.trim().toUpperCase(),side=document.getElementById('al-side').value,dir=document.getElementById('al-dir').value,price=parseFloat(document.getElementById('al-price').value); if(!currency)return showToast('⚠️ Enter a currency'); if(!price||price<=0)return showToast('⚠️ Enter a valid price'); priceAlerts.push({id:Date.now(),token,currency,side,dir,price}); saveAlerts(); document.getElementById('al-price').value='';document.getElementById('al-cur').value=''; showToast('🔔 Alert set!'); renderAlertsList(); }
+function addPriceAlert(){ const token=document.getElementById('al-token').value,currency=document.getElementById('al-cur').value.trim().toUpperCase(),side=document.getElementById('al-side').value,dir=document.getElementById('al-dir').value,price=parseFloat(document.getElementById('al-price').value); if(!currency)return showToast('⚠️ Enter a currency'); if(!price||price<=0)return showToast('⚠️ Enter a valid price'); priceAlerts.push({id:Date.now(),token,currency,side,dir,price}); saveAlerts(); document.getElementById('al-price').value='';document.getElementById('al-cur').value=''; showToast('🔔 Alert set! Use /alert in the bot for persistent alerts.'); renderAlertsList(); }
 function removeAlert(id){ priceAlerts=priceAlerts.filter(a=>a.id!==id); saveAlerts(); renderAlertsList(); showToast('Alert removed'); }
-function renderAlertsList(){ setHTML('alerts-list',priceAlerts.length?priceAlerts.map(a=>`<div class="alert-row"><div style="min-width:0"><div style="font-size:13px;font-weight:600">${a.token}/${a.currency} · ${a.side}</div><div style="font-size:11px;color:var(--muted)">${a.dir==='ABOVE'?'⬆️':'⬇️'} ${a.dir} ${fmtNum(a.price)}</div></div><button class="alert-del" onclick="removeAlert(${a.id})">×</button></div>`).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">No active alerts</div>'); }
+function renderAlertsList(){ setHTML('alerts-list',priceAlerts.length?priceAlerts.map(a=>`<div class="alert-row"><div style="min-width:0"><div style="font-size:13px;font-weight:600">${escHtml(a.token)}/${escHtml(a.currency)} · ${escHtml(a.side)}</div><div style="font-size:11px;color:var(--muted)">${a.dir==='ABOVE'?'⬆️':'⬇️'} ${escHtml(a.dir)} ${fmtNum(a.price)}</div></div><button class="alert-del" onclick="removeAlert(${Number(a.id)})">×</button></div>`).join(''):'<div style="color:var(--muted);font-size:12px;text-align:center;padding:12px 0">No active alerts</div>'); }
 
-// ── ADMIN PANEL ───────────────────────────────────────────────────────────────
 async function loadAdminPanel(){
   if(!isAdmin) return;
   clearErr('admin-err'); setHTML('admin-users',spinnerHTML());
@@ -704,19 +713,23 @@ async function loadAdminPanel(){
     const users = usersR.users||[];
     setHTML('admin-users', users.length
       ? users.map(u=>{
-          const initials=(u.firstName||'?').slice(0,2).toUpperCase();
+          // FIX #2: escape all user-supplied fields
+          const initials=escHtml((u.firstName||'?').slice(0,2).toUpperCase());
+          const name=escHtml(u.firstName||'Unknown');
+          const uname=escHtml(u.username||'none');
           const activeBadge=u.active?'<span class="badge b-on">Active</span>':'<span class="badge b-suspended">Suspended</span>';
           const keyBadge=u.hasKeys?'<span class="badge b-done">🔑 Keys</span>':'<span class="badge b-cancel">No Keys</span>';
           const adminBadge=u.isAdmin?'<span class="badge b-admin">Admin</span>':'';
+          const tid=Number(u.telegramId); // always numeric — safe in onclick
           const toggleBtn=u.isAdmin?'':u.active
-            ?`<button class="btn btn-orange btn-sm" onclick="suspendUser(${u.telegramId})">🚫</button>`
-            :`<button class="btn btn-green btn-sm"  onclick="reinstateUser(${u.telegramId})">✅</button>`;
-          const delBtn=u.isAdmin?'':`<button class="btn btn-red btn-sm" onclick="deleteUser(${u.telegramId})">🗑</button>`;
+            ?`<button class="btn btn-orange btn-sm" onclick="suspendUser(${tid})">🚫</button>`
+            :`<button class="btn btn-green btn-sm"  onclick="reinstateUser(${tid})">✅</button>`;
+          const delBtn=u.isAdmin?'':`<button class="btn btn-red btn-sm" onclick="deleteUser(${tid})">🗑</button>`;
           return `<div class="user-row">
             <div class="user-avatar">${initials}</div>
             <div class="user-info">
-              <div class="user-name">${u.firstName||'Unknown'} ${adminBadge}</div>
-              <div class="user-meta">@${u.username||'none'} · ID: ${u.telegramId}</div>
+              <div class="user-name">${name} ${adminBadge}</div>
+              <div class="user-meta">@${uname} · ID: ${tid}</div>
               <div style="display:flex;gap:5px;margin-top:5px">${activeBadge}${keyBadge}</div>
               <div style="font-size:10px;color:var(--muted);margin-top:3px">Last seen: ${u.lastSeen?timeAgo(new Date(u.lastSeen).getTime()):'never'}</div>
             </div>
@@ -727,16 +740,14 @@ async function loadAdminPanel(){
   } catch(e){ showErr('admin-err',e.message); setHTML('admin-users',''); }
 }
 
-async function suspendUser(id){ let ok=tg?.showConfirm?await new Promise(r=>tg.showConfirm('Suspend this user?',r)):window.confirm('Suspend this user?'); if(!ok)return; try{ await apiPatch(`/admin/users/${id}`,{active:false}); showToast('🚫 User suspended'); loadAdminPanel(); }catch(e){showToast('❌ '+e.message);} }
+async function suspendUser(id){ const confirmed=tg?.showConfirm?await new Promise(r=>tg.showConfirm('Suspend this user?',r)):window.confirm('Suspend this user?'); if(!confirmed)return; try{ await apiPatch(`/admin/users/${id}`,{active:false}); showToast('🚫 User suspended'); loadAdminPanel(); }catch(e){showToast('❌ '+e.message);} }
 async function reinstateUser(id){ try{ await apiPatch(`/admin/users/${id}`,{active:true}); showToast('✅ User reinstated'); loadAdminPanel(); }catch(e){showToast('❌ '+e.message);} }
-async function deleteUser(id){ let ok=tg?.showConfirm?await new Promise(r=>tg.showConfirm('Permanently delete this user?',r)):window.confirm('Permanently delete this user?'); if(!ok)return; try{ await apiDel(`/admin/users/${id}`); showToast('🗑 User deleted'); loadAdminPanel(); }catch(e){showToast('❌ '+e.message);} }
+async function deleteUser(id){ const confirmed=tg?.showConfirm?await new Promise(r=>tg.showConfirm('Permanently delete this user?',r)):window.confirm('Permanently delete this user?'); if(!confirmed)return; try{ await apiDel(`/admin/users/${id}`); showToast('🗑 User deleted'); loadAdminPanel(); }catch(e){showToast('❌ '+e.message);} }
 
-// ── MODAL ─────────────────────────────────────────────────────────────────────
 function openModal(id){ document.getElementById(id)?.classList.add('open'); }
 function closeModal(id){ document.getElementById(id)?.classList.remove('open'); }
 document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');}));
 
-// ── BOOT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', boot);
 </script>
 </body>
