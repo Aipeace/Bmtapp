@@ -57,12 +57,11 @@ const fmt = (n, d = 2) =>
 
 const sideLabel   = s => String(s) === '0' ? '🟢 BUY' : '🔴 SELL';
 const statusLabel = s => ({
-  '5' : '🔄 In Progress',
   '10': '⏳ Waiting Payment',
-  '20': '💳 Paid – Awaiting Release',
-  '30': '✅ Completed',
+  '20': '💳 Awaiting Release',
+  '30': '⚠️ Appealing',
   '40': '❌ Cancelled',
-  '50': '⚠️ Appeal',
+  '50': '✅ Completed',
 })[String(s)] || `Status ${s}`;
 
 function sess(chatId) {
@@ -291,11 +290,11 @@ async function showAds(chatId, api) {
   await send(chatId, '⏳ Loading your ads…');
   try {
     const res = await api.getMyAds();
-    if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
+    if (res.ret_code !== 0) return send(chatId, `❌ Bybit: ${res.ret_msg}`);
     const ads = res.result?.items || [];
     if (!ads.length) return send(chatId, '📭 No ads. Use the Mini App to create one.');
     for (const ad of ads.slice(0, 8)) {
-      const on = String(ad.status) === '1';
+      const on = String(ad.status) === '10'; // '10'=online, '20'=offline per Bybit P2P docs
       await bot.sendMessage(chatId,
         `${on ? '🟢' : '⚫'} *${sideLabel(ad.side)} ${ad.tokenId}/${ad.currencyId}*\n` +
         `💲 \`${fmt(ad.price)}\`  📦 \`${fmt(ad.quantity)}\`\n` +
@@ -316,7 +315,7 @@ async function showOrders(chatId, api, statusFilter = '') {
   await send(chatId, '⏳ Loading orders…');
   try {
     const res    = await api.getOrders({ status: statusFilter });
-    if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
+    if (res.ret_code !== 0) return send(chatId, `❌ Bybit: ${res.ret_msg}`);
     const orders = res.result?.items || [];
     if (!orders.length) return send(chatId, '📭 No orders found.');
     for (const o of orders.slice(0, 8)) {
@@ -324,7 +323,7 @@ async function showOrders(chatId, api, statusFilter = '') {
       const btns = [];
       if (s === '10')              btns.push({ text: '✅ Mark Paid', callback_data: `ord_pay_${o.id}` });
       if (s === '20')              btns.push({ text: '🔓 Release',   callback_data: `ord_release_${o.id}` });
-      if (['5','10'].includes(s))  btns.push({ text: '❌ Cancel',    callback_data: `ord_cancel_${o.id}` });
+      if (s === '10')              btns.push({ text: '❌ Cancel',    callback_data: `ord_cancel_${o.id}` }); // only cancellable when waiting for payment
       if (['10','20'].includes(s)) btns.push({ text: '💬 Chat',      callback_data: `ord_chat_${o.id}` });
       await bot.sendMessage(chatId,
         `${statusLabel(o.status)} — *${sideLabel(o.side)}*\n` +
@@ -343,7 +342,7 @@ async function showBalance(chatId, api) {
   await send(chatId, '⏳ Fetching balance…');
   try {
     const res   = await api.getAccountBalance();
-    if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
+    if (res.ret_code !== 0) return send(chatId, `❌ Bybit: ${res.ret_msg}`);
     const coins = (res.result?.list?.[0]?.coin || []).filter(c => parseFloat(c.walletBalance) > 0);
     const lines = coins.map(c =>
       `• *${c.coin}*: \`${fmt(c.walletBalance,6)}\` (avail: \`${fmt(c.transferBalance,6)}\`)`
@@ -357,9 +356,9 @@ async function showAnalytics(chatId, api) {
   await send(chatId, '⏳ Calculating…');
   try {
     const res  = await api.getOrderHistory(30);
-    if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
+    if (res.ret_code !== 0) return send(chatId, `❌ Bybit: ${res.ret_msg}`);
     const all  = res.result?.items || [];
-    const done = all.filter(o => String(o.status) === '30');
+    const done = all.filter(o => String(o.status) === '50'); // 50=completed per Bybit P2P docs
     const vol  = done.reduce((s,o) => s + parseFloat(o.amount   || 0), 0);
     const qty  = done.reduce((s,o) => s + parseFloat(o.quantity || 0), 0);
     const rate = all.length ? ((done.length / all.length) * 100).toFixed(1) : '0.0';
@@ -561,10 +560,10 @@ bot.on('callback_query', async (q) => {
     const last = raw.lastIndexOf('_');
     const adId = raw.slice(0, last);
     const cur  = raw.slice(last + 1);
-    const next = cur === '1' ? '2' : '1';
+    const next = cur === '10' ? '20' : '10'; // '10'=online, '20'=offline
     try {
       const r = await api.toggleAdStatus(adId, next);
-      send(chatId, r.retCode === 0 ? `✅ Ad ${next==='1' ? 'activated 🟢' : 'paused ⚫'}.` : `❌ ${r.retMsg}`);
+      send(chatId, r.ret_code === 0 ? `✅ Ad ${next==='10' ? 'activated 🟢' : 'paused ⚫'}.` : `❌ ${r.ret_msg}`);
     } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
@@ -580,7 +579,7 @@ bot.on('callback_query', async (q) => {
     const adId = data.replace('ad_del_', '');
     try {
       const r = await api.deleteAd(adId);
-      send(chatId, r.retCode === 0 ? '🗑 Ad deleted.' : `❌ ${r.retMsg}`);
+      send(chatId, r.ret_code === 0 ? '🗑 Ad deleted.' : `❌ ${r.ret_msg}`);
     } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
@@ -589,7 +588,7 @@ bot.on('callback_query', async (q) => {
     if (!api) return noKeys(chatId);
     try {
       const r = await api.confirmPayment(data.replace('ord_pay_', ''));
-      send(chatId, r.retCode === 0 ? '✅ Payment confirmed!' : `❌ ${r.retMsg}`);
+      send(chatId, r.ret_code === 0 ? '✅ Payment confirmed!' : `❌ ${r.ret_msg}`);
     } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
@@ -597,7 +596,7 @@ bot.on('callback_query', async (q) => {
     if (!api) return noKeys(chatId);
     try {
       const r = await api.releaseAsset(data.replace('ord_release_', ''));
-      send(chatId, r.retCode === 0 ? '🔓 Crypto released!' : `❌ ${r.retMsg}`);
+      send(chatId, r.ret_code === 0 ? '🔓 Crypto released!' : `❌ ${r.ret_msg}`);
     } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
@@ -605,7 +604,7 @@ bot.on('callback_query', async (q) => {
     if (!api) return noKeys(chatId);
     try {
       const r = await api.cancelOrder(data.replace('ord_cancel_', ''), '1');
-      send(chatId, r.retCode === 0 ? '❌ Order cancelled.' : `❌ ${r.retMsg}`);
+      send(chatId, r.ret_code === 0 ? '❌ Order cancelled.' : `❌ ${r.ret_msg}`);
     } catch (e) { send(chatId, `❌ ${e.message}`); }
     return;
   }
@@ -674,7 +673,7 @@ bot.on('message', async (msg) => {
     if (!api) return noKeys(chatId);
     try {
       const r = await api.sendChatMessage(s.activeOrder, text);
-      send(chatId, r.retCode === 0 ? '✅ Sent.' : `❌ ${r.retMsg}`);
+      send(chatId, r.ret_code === 0 ? '✅ Sent.' : `❌ ${r.ret_msg}`);
     } catch (e) { send(chatId, `❌ ${e.message}`); }
   }
 });
@@ -720,7 +719,7 @@ setInterval(async () => {
     const api = getApi(chatId);
     if (!api) continue;
     try {
-      const r = await api.getOrders({ status: '5', size: 20 });
+      const r = await api.getOrders({ status: 10, size: 20 }); // 10 = waiting for buyer to pay
       for (const o of r.result?.items || []) {
         const snapKey = `${chatId}:${o.id}`;
         const prev    = orderSnap.get(snapKey);
