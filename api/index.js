@@ -1,5 +1,5 @@
 /**
- * api/index.jsuuyf
+ * api/index.js
  * ⚠️  VERCEL DEPLOYMENT ONLY — single-user mode.
  *
  * Fixes applied:
