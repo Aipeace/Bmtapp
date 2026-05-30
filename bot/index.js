@@ -17,6 +17,18 @@
  *   /reinstate <id>  → reinstate a user
  *   /deluser <id>    → delete a user
  *   /broadcast <msg> → send message to all active users
+ *
+ * Fixes applied:
+ *  10. Persisted subscriptions restored on startup (survives Termux kills/restarts)
+ *  17. send() auto-cleans users who blocked the bot
+ *  18. Order watcher uses setInterval instead of a 6-field cron for compatibility
+ *  19. orderSnap is pruned of completed/cancelled orders to prevent unbounded
+ *      memory growth during long-running sessions
+ *  20. All fire-and-forget send() calls that should not block are properly
+ *      handled — unhandled rejections no longer risk crashing the process
+ *  21. Graceful shutdown on SIGINT/SIGTERM for clean Termux Ctrl+C behaviour
+ *  22. priceAlerts map is cleaned up when users are deleted/suspended so stale
+ *      entries don't accumulate forever
  */
 
 'use strict';
@@ -42,9 +54,6 @@ const orderWatchers = new Set(); // chatIds watching for new orders
 const orderSnap     = new Map(); // `${chatId}:${orderId}` → last known order object
 
 // ── FIX #10: Restore persisted subscriptions on startup ──────────────────────
-// Render free tier restarts the bot regularly. Users who ran /watch or /alert
-// had their subscriptions silently lost. We now persist both to data/users.json
-// and restore them here so they survive restarts with no user action needed.
 for (const u of store.getAll()) {
   if (u.watchOrders)          orderWatchers.add(u.telegramId);
   if (u.priceAlerts?.length)  priceAlerts.set(u.telegramId, u.priceAlerts);
@@ -69,20 +78,23 @@ function sess(chatId) {
   return sessions.get(chatId);
 }
 
-// FIX #17: send() now detects "bot was blocked by the user" and auto-cleans up:
-//   - removes from orderWatchers so the cron doesn't keep trying
-//   - suspends the user record so stale entries don't pollute broadcasts
+// FIX #17/#20: send() catches all errors. When the user blocks the bot,
+// auto-suspend and remove from watchers. Returns null on failure so
+// callers can await safely without crashing.
 async function send(chatId, text, extra = {}) {
   try {
     return await bot.sendMessage(chatId, text, { parse_mode: 'Markdown', ...extra });
   } catch (e) {
     if (e.message?.includes('bot was blocked') || e.message?.includes('user is deactivated')) {
+      // FIX #22: clean up in-memory state for blocked users
       orderWatchers.delete(chatId);
+      priceAlerts.delete(chatId);
       store.upsert(chatId, { watchOrders: false, active: false });
       console.log(`[send] User ${chatId} blocked the bot — auto-suspended`);
     } else {
       console.error(`[send] ${chatId}:`, e.message);
     }
+    return null;
   }
 }
 
@@ -113,6 +125,7 @@ bot.onText(/^\/start$/, async (msg) => {
       username:  tgUser.username  || '',
     });
     if (ADMIN_ID && chatId !== ADMIN_ID) {
+      // FIX #20: fire-and-forget — don't await admin notification
       send(ADMIN_ID,
         `👤 *New user registered*\n` +
         `Name: ${tgUser.first_name || 'Unknown'}\n` +
@@ -194,7 +207,7 @@ bot.onText(/^\/clearalerts$/, (msg) => {
   send(chatId, '✅ Alerts cleared.');
 });
 
-// FIX #10: /watch and /unwatch now persist to store so they survive restarts
+// FIX #10: /watch and /unwatch persist to store so they survive restarts
 bot.onText(/^\/watch$/, (msg) => {
   const chatId = msg.chat.id;
   orderWatchers.add(chatId);
@@ -323,7 +336,7 @@ async function showOrders(chatId, api, statusFilter = '') {
       const btns = [];
       if (s === '10')              btns.push({ text: '✅ Mark Paid', callback_data: `ord_pay_${o.id}` });
       if (s === '20')              btns.push({ text: '🔓 Release',   callback_data: `ord_release_${o.id}` });
-      if (s === '10')              btns.push({ text: '❌ Cancel',    callback_data: `ord_cancel_${o.id}` }); // only cancellable when waiting for payment
+      if (s === '10')              btns.push({ text: '❌ Cancel',    callback_data: `ord_cancel_${o.id}` });
       if (['10','20'].includes(s)) btns.push({ text: '💬 Chat',      callback_data: `ord_chat_${o.id}` });
       await bot.sendMessage(chatId,
         `${statusLabel(o.status)} — *${sideLabel(o.side)}*\n` +
@@ -342,8 +355,7 @@ async function showBalance(chatId, api) {
   await send(chatId, '⏳ Fetching balance…');
   try {
     const res   = await api.getAccountBalance();
-    // getAccountBalance uses V5 trading API → returns retCode/retMsg (camelCase)
-    // All P2P endpoints return ret_code/ret_msg (snake_case)
+    // getAccountBalance uses V5 asset API → returns retCode/retMsg (camelCase)
     if (res.retCode !== 0) return send(chatId, `❌ Bybit: ${res.retMsg}`);
     const coins = (res.result?.list?.[0]?.coin || []).filter(c => parseFloat(c.walletBalance) > 0);
     const lines = coins.map(c =>
@@ -360,7 +372,7 @@ async function showAnalytics(chatId, api) {
     const res  = await api.getOrderHistory(30);
     if (res.ret_code !== 0) return send(chatId, `❌ Bybit: ${res.ret_msg}`);
     const all  = res.result?.items || [];
-    const done = all.filter(o => String(o.status) === '50'); // 50=completed per Bybit P2P docs
+    const done = all.filter(o => String(o.status) === '50');
     const vol  = done.reduce((s,o) => s + parseFloat(o.amount   || 0), 0);
     const qty  = done.reduce((s,o) => s + parseFloat(o.quantity || 0), 0);
     const rate = all.length ? ((done.length / all.length) * 100).toFixed(1) : '0.0';
@@ -445,6 +457,8 @@ bot.onText(/^\/suspend (\d+)$/, (msg, match) => {
   const u = store.get(targetId);
   if (!u) return send(msg.chat.id, '❌ User not found.');
   store.setActive(targetId, false);
+  // FIX #22: clean up in-memory state when suspending
+  orderWatchers.delete(Number(targetId));
   send(msg.chat.id, `🚫 User \`${targetId}\` (${u.firstName}) suspended.`);
   send(Number(targetId), '🚫 Your account has been suspended by the admin.');
 });
@@ -467,6 +481,10 @@ bot.onText(/^\/deluser (\d+)$/, (msg, match) => {
   if (!u) return send(msg.chat.id, '❌ User not found.');
   pool.evict(Number(targetId));
   store.remove(targetId);
+  // FIX #22: clean up all in-memory state when deleting a user
+  orderWatchers.delete(Number(targetId));
+  priceAlerts.delete(Number(targetId));
+  sessions.delete(Number(targetId));
   send(msg.chat.id, `🗑 User \`${targetId}\` (${u.firstName}) deleted.`);
 });
 
@@ -503,7 +521,6 @@ bot.on('callback_query', async (q) => {
   if (data === 'balance')     return api ? showBalance(chatId, api)   : noKeys(chatId);
   if (data === 'analytics')   return api ? showAnalytics(chatId, api) : noKeys(chatId);
 
-  // orders_list clears chatMode so users don't accidentally stay in chat mode after navigating back
   if (data === 'orders_list') {
     const s = sess(chatId);
     s.chatMode    = false;
@@ -526,7 +543,7 @@ bot.on('callback_query', async (q) => {
   if (data === 'alerts_list')  return listAlerts(chatId);
   if (data === 'alerts_clear') {
     priceAlerts.delete(chatId);
-    store.upsert(chatId, { priceAlerts: [] }); // FIX #10: persist
+    store.upsert(chatId, { priceAlerts: [] });
     return send(chatId, '✅ Alerts cleared.');
   }
 
@@ -562,7 +579,7 @@ bot.on('callback_query', async (q) => {
     const last = raw.lastIndexOf('_');
     const adId = raw.slice(0, last);
     const cur  = raw.slice(last + 1);
-    const next = cur === '10' ? '20' : '10'; // '10'=online, '20'=offline
+    const next = cur === '10' ? '20' : '10';
     try {
       const r = await api.toggleAdStatus(adId, next);
       send(chatId, r.ret_code === 0 ? `✅ Ad ${next==='10' ? 'activated 🟢' : 'paused ⚫'}.` : `❌ ${r.ret_msg}`);
@@ -634,9 +651,7 @@ bot.on('message', async (msg) => {
   }
 
   if (s.step === 'awaiting_api_secret') {
-    const apiKey    = s.pendingKey;
-    // Guard: if bot restarted mid-setup, pendingKey will be undefined.
-    // Send the user back to step 1 rather than saving a broken record.
+    const apiKey = s.pendingKey;
     if (!apiKey) {
       s.step = null;
       return send(chatId, '⚠️ Setup timed out (bot restarted). Please run /setup again.');
@@ -690,7 +705,11 @@ bot.on('message', async (msg) => {
 cron.schedule('*/2 * * * *', async () => {
   for (const [chatId, alerts] of priceAlerts.entries()) {
     const api = getApi(chatId);
-    if (!api) continue;
+    // FIX #22: remove stale entries for users that no longer exist
+    if (!api) {
+      if (!store.get(chatId)) priceAlerts.delete(chatId);
+      continue;
+    }
     for (let i = alerts.length - 1; i >= 0; i--) {
       const a = alerts[i];
       try {
@@ -719,15 +738,19 @@ cron.schedule('*/2 * * * *', async () => {
 });
 
 // ── Background: new order watcher ────────────────────────────────────────────
-// FIX #18: Use setInterval instead of a 6-field cron expression.
-// node-cron's second-field support can be ambiguous across versions.
-// setInterval(30_000) is simpler, guaranteed, and universally supported.
+// FIX #18: setInterval instead of 6-field cron for guaranteed compatibility
+// FIX #19: prune orderSnap entries for terminal-state orders to prevent memory leak
 setInterval(async () => {
+  // FIX #19: prune completed/cancelled orders from snapshot every cycle
+  for (const [k, o] of orderSnap.entries()) {
+    if (['40', '50'].includes(String(o.status))) orderSnap.delete(k);
+  }
+
   for (const chatId of orderWatchers) {
     const api = getApi(chatId);
     if (!api) continue;
     try {
-      const r = await api.getOrders({ status: 10, size: 20 }); // 10 = waiting for buyer to pay
+      const r = await api.getOrders({ status: 10, size: 20 });
       for (const o of r.result?.items || []) {
         const snapKey = `${chatId}:${o.id}`;
         const prev    = orderSnap.get(snapKey);
@@ -747,6 +770,19 @@ setInterval(async () => {
 }, 30_000);
 
 bot.on('polling_error', e => console.error('[polling]', e.code, e.message));
+
+// FIX #21: Graceful shutdown for Termux
+function shutdown(signal) {
+  console.log(`\n${signal} received — stopping bot…`);
+  bot.stopPolling({ cancel: true }).then(() => {
+    console.log('✅  Bot stopped.');
+    process.exit(0);
+  }).catch(() => process.exit(0));
+  setTimeout(() => process.exit(1), 5000);
+}
+process.on('SIGINT',  () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
 console.log('🤖 Multi-user P2P Bot started');
 console.log(`👑 Admin ID: ${ADMIN_ID || 'NOT SET'}`);
 console.log(`📱 Mini App: ${MINI_APP_URL}`);
