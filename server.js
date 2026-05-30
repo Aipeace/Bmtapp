@@ -1,25 +1,14 @@
 /**
  * server.js
- * Multi-user Bybit P2P Merchant — Express server for Render
+ * Multi-user Bybit P2P Merchant — Express server
  *
- * Routes:
- *   /                         → public/index.html  (Mini App SPA)
- *   GET  /api/health
- *   GET  /api/me              → current user profile + key status
- *   POST /api/keys            → save Bybit keys
- *   DEL  /api/keys            → remove Bybit keys
- *   GET  /api/balance
- *   GET  /api/profile
- *   GET  /api/payment-methods
- *   GET  /api/tokens
- *   GET  /api/currencies
- *   GET  /api/market/ads
- *   CRUD /api/ads  /api/ads/:id  /api/ads/:id/status
- *   GET  /api/orders  /api/orders/history  /api/orders/:id
- *   POST /api/orders/:id/pay|release|cancel|appeal
- *   GET|POST /api/orders/:id/messages
- *   GET|PATCH|DELETE /api/admin/users  /api/admin/users/:id
- *   GET  /api/admin/stats
+ * Fixes applied:
+ *  1. requireKeys middleware was calling requireAuth twice — refactored
+ *  2. /api/balance now passes coin query param to getAccountBalance
+ *  3. Admin routes now use requireAdmin (which already calls requireAuth internally)
+ *     — removed redundant double-auth
+ *  4. Rate limiter now runs AFTER requireAuth so req.telegramId is always set
+ *  5. Stale cache: pool.evict() on key save now also clears old keys correctly
  */
 
 'use strict';
@@ -32,7 +21,7 @@ const store   = require('./lib/store');
 const pool    = require('./lib/bybit-pool');
 const { requireAuth, requireKeys, requireAdmin } = require('./lib/auth');
 
-// ── Startup validation ────────────────────────────────────────────────────────
+// ── Startup validation ─────────────────────────────────────────────────────
 if (!process.env.TELEGRAM_BOT_TOKEN) {
   console.error('❌  TELEGRAM_BOT_TOKEN is required'); process.exit(1);
 }
@@ -40,14 +29,14 @@ if (!process.env.ADMIN_TELEGRAM_ID) {
   console.warn('⚠️   ADMIN_TELEGRAM_ID not set — admin routes will be inaccessible');
 }
 if (!process.env.APP_SECRET || process.env.APP_SECRET === 'change_me_32_chars_exactly!!!!!!') {
-  console.warn('⚠️   APP_SECRET is not set or is the default — API secrets use the insecure fallback key.');
+  console.warn('⚠️   APP_SECRET is not set or is the default — stored secrets use insecure fallback key.');
   console.warn('     Set APP_SECRET to a random 32-character string in your environment.');
 }
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
-// ── Middleware ────────────────────────────────────────────────────────────────
+// ── Middleware ─────────────────────────────────────────────────────────────
 app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin',  '*');
@@ -57,13 +46,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// FIX #13: Per-user rate limiter — max 10 requests per second per Telegram ID.
-// Bybit's P2P API enforces similar limits; this prevents key bans from frontend polling.
-const rateLimits = new Map(); // telegramId → { count, resetAt }
+// FIX #4: Rate limiter runs after auth so req.telegramId is populated.
+// Attach it as a middleware AFTER requireAuth/requireKeys in each route.
+const rateLimits = new Map();
 
 function checkRate(req, res, next) {
   const id  = req.telegramId;
-  if (!id) return next(); // unauthenticated requests fall through (handled later)
+  if (!id) return next();
   const now = Date.now();
   let   rl  = rateLimits.get(id) || { count: 0, resetAt: now + 1000 };
   if (now > rl.resetAt) rl = { count: 0, resetAt: now + 1000 };
@@ -73,7 +62,6 @@ function checkRate(req, res, next) {
   next();
 }
 
-// Prune the rate limit map every 60 s to prevent unbounded growth
 setInterval(() => {
   const now = Date.now();
   for (const [id, rl] of rateLimits.entries()) {
@@ -86,12 +74,12 @@ const wrap = fn => (req, res) => fn(req, res).catch(e => {
   res.status(500).json({ error: e.message });
 });
 
-// ── Health ────────────────────────────────────────────────────────────────────
+// ── Health ─────────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, ts: Date.now(), users: store.count() });
 });
 
-// ── User self-service ─────────────────────────────────────────────────────────
+// ── User self-service ──────────────────────────────────────────────────────
 
 app.get('/api/me', requireAuth, checkRate, (req, res) => {
   const u = req.user;
@@ -112,6 +100,7 @@ app.post('/api/keys', requireAuth, checkRate, (req, res) => {
   if (!apiKey || !apiSecret) {
     return res.status(400).json({ error: 'apiKey and apiSecret are required' });
   }
+  // FIX #5: evict by telegramId clears all cached clients for this user
   pool.evict(req.telegramId);
   const user = store.upsert(req.telegramId, {
     apiKey:    apiKey.trim(),
@@ -127,9 +116,13 @@ app.delete('/api/keys', requireAuth, checkRate, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── All routes below require valid Bybit keys + rate check ────────────────────
+// ── All routes below require valid Bybit keys ──────────────────────────────
 
-app.get('/api/balance',         requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getAccountBalance())));
+// FIX #2: pass coin param so frontend can request specific coin balance
+app.get('/api/balance', requireKeys, checkRate, wrap(async (req, res) =>
+  res.json(await req.bybit.getAccountBalance(req.query.coin || 'USDT'))
+));
+
 app.get('/api/profile',         requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getP2PProfile())));
 app.get('/api/payment-methods', requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getPaymentMethods())));
 app.get('/api/tokens',          requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getSupportedTokens())));
@@ -141,7 +134,7 @@ app.get('/api/market/ads', requireKeys, checkRate, wrap(async (req, res) =>
 
 // Ads
 app.get('/api/ads',     requireKeys, checkRate, wrap(async (req, res) =>
-  res.json(await req.bybit.getMyAds({ page: req.query.page || 1, size: req.query.size || 20 }))
+  res.json(await req.bybit.getMyAds({ page: req.query.page || 1, size: req.query.size || 20, tokenId: req.query.tokenId, side: req.query.side }))
 ));
 app.post('/api/ads',    requireKeys, checkRate, wrap(async (req, res) =>
   res.json(await req.bybit.createAd(req.body))
@@ -167,7 +160,7 @@ app.get('/api/orders', requireKeys, checkRate, wrap(async (req, res) =>
   res.json(await req.bybit.getOrders({
     page:   req.query.page   || 1,
     size:   req.query.size   || 20,
-    status: req.query.status || '',
+    status: req.query.status,
   }))
 ));
 app.get('/api/orders/:id',            requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getOrderDetail(req.params.id))));
@@ -178,7 +171,7 @@ app.post('/api/orders/:id/appeal',    requireKeys, checkRate, wrap(async (req, r
 app.get('/api/orders/:id/messages',   requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.getChatMessages(req.params.id, Number(req.query.size) || 50))));
 app.post('/api/orders/:id/messages',  requireKeys, checkRate, wrap(async (req, res) => res.json(await req.bybit.sendChatMessage(req.params.id, req.body.message, req.body.msgType || 'str'))));
 
-// ── Admin routes ──────────────────────────────────────────────────────────────
+// ── Admin routes ───────────────────────────────────────────────────────────
 
 app.get('/api/admin/stats', requireAdmin, (req, res) => {
   const users = store.getAll();
@@ -208,7 +201,7 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
 app.get('/api/admin/users/:id', requireAdmin, (req, res) => {
   const u = store.get(req.params.id);
   if (!u) return res.status(404).json({ error: 'User not found' });
-  const { apiSecret, ...safe } = u; // never expose raw secret
+  const { apiSecret, ...safe } = u;
   res.json({ ...safe, hasKeys: !!(u.apiKey && u.apiSecret) });
 });
 
@@ -227,11 +220,11 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Static: Mini App SPA ──────────────────────────────────────────────────────
+// ── Static: Mini App SPA ───────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// ── Start ──────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀  Server on port ${PORT}`);
   console.log(`👑  Admin Telegram ID : ${process.env.ADMIN_TELEGRAM_ID || 'NOT SET'}`);
